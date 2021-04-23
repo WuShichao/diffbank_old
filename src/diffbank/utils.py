@@ -58,6 +58,8 @@ def get_m1_m2_sampler(m1_range, m2_range) -> Callable[[jnp.ndarray, int], jnp.nd
 def Sn_func(f):
     """
     Noise function for aLIGO?
+
+    TODO: fix!
     """
     fs = 40  # Hz
     f_theta = 150  # Hz

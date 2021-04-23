@@ -47,11 +47,37 @@ class Bank:
         self.templates: jnp.ndarray = None
         self.effectualnesses: jnp.ndarray = None
 
+    def __str__(self):
+        return f"Bank(m_star={float(self.m_star)}, eta={float(self.eta)}, dim={self.dim}, name='{self.name}')"
+
+    def __repr__(self):
+        return str(self)  # for now
+
+    @property
+    def m_star(self):
+        return self._m_star
+
+    @m_star.setter
+    def m_star(self, m_star):
+        if m_star < 0 or m_star > 1:
+            raise ValueError("m_star must be a scalar in (0, 1)")
+        self._m_star = m_star
+
+    @property
+    def eta(self):
+        return self._eta
+
+    @eta.setter
+    def eta(self, eta):
+        if eta < 0 or eta > 1:
+            raise ValueError("eta must be a scalar in (0, 1)")
+        self._eta = eta
+
     @property
     def dim(self) -> jnp.ndarray:
         return self.sampler(jax.random.PRNGKey(1), 1).shape[-1]  # key doesn't matter
 
-    def density_fun(self, theta) -> jnp.ndarray:
+    def get_density(self, theta) -> jnp.ndarray:
         """
         Template density, sqrt(|g|).
         """
@@ -65,7 +91,7 @@ class Bank:
             key,
             self.naive_vol,
             n_samples,
-            self.density_fun,
+            self.get_density,
             self.sampler,
             self.eta,
             self.m_star,
@@ -75,8 +101,10 @@ class Bank:
         """
         Generates templates using rejection sampling.
         """
+        if self.density_max is None:
+            raise ValueError("Must set bank's 'density_max' attribute")
         return gen_templates_rejection(
-            key, self.density_max, n_templates, self.density_fun, self.sampler
+            key, self.density_max, n_templates, self.get_density, self.sampler
         )
 
     def fill_bank(self, key: jnp.ndarray):
@@ -105,11 +133,11 @@ class Bank:
     @classmethod
     def load_bank(
         cls,
+        path: str,
         amp: Callable[[jnp.ndarray, jnp.ndarray], jnp.ndarray],
         Psi: Callable[[jnp.ndarray, jnp.ndarray], jnp.ndarray],
         Sn: Callable[[jnp.ndarray], jnp.ndarray],
         sampler: Callable[[jnp.ndarray, int], jnp.ndarray],
-        path: str,
     ):
         """
         Loads template bank non-function attributes from a npz file.
