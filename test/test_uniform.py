@@ -1,13 +1,14 @@
+from math import sqrt
+
 from matplotlib.collections import PatchCollection
-from math import sqrt, pi
-import numpy as np
-import jax
-import jax.numpy as jnp
-from jax import random
 import matplotlib.pyplot as plt
-from tqdm.auto import trange
+import numpy as np
 
 from diffbank.utils import get_n_templates
+import jax
+from jax import random
+import jax.numpy as jnp
+from tqdm.auto import trange
 
 """
 Tests consistency of random template bank using a simple waveform model with
@@ -29,6 +30,7 @@ m_star = 1 - mm  # maximum mismatch
 def density_fun(_):
     return jnp.array(1.0)
 
+
 # Uniform sampler
 def sampler(key, n):
     return random.uniform(key, (n, 2), minval=m_min, maxval=m_max)
@@ -46,11 +48,13 @@ def get_eff(x, y):
 def test_uniform():
     # Generate bank
     key = random.PRNGKey(198)
-    n_templates = get_n_templates(key, naive_vol, 1000, density_fun, sampler, eta, m_star)
+    n_templates = get_n_templates(
+        key, naive_vol, 1000, density_fun, sampler, eta, m_star
+    )
     _, key = random.split(key)
 
     print(f"{n_templates} templates required")
-    n_templates_Zn = int(naive_vol / (2 * m_star / sqrt(2))**2)
+    n_templates_Zn = int(naive_vol / (2 * m_star / sqrt(2)) ** 2)
     print(f"{n_templates_Zn} templates required for a Z_n lattice")
 
     templates = sampler(key, n_templates)
@@ -79,7 +83,7 @@ def test_uniform():
     # Effectualnesses
     plt.subplot(1, 2, 1)
     plt.hist(effectualnesses)
-    plt.axvline(1 - m_star, color="r")
+    plt.axvline(mm, color="r")
     plt.xlabel("Effectualness")
     plt.ylabel("Frequency")
     plt.title(r"$%.3f \pm %.3f$ above %g" % (eff_frac, eff_frac_err, m_star))
@@ -103,6 +107,7 @@ def test_uniform():
     plt.suptitle(r"$^{%g}\mathcal{R}_{%i}(%g)$" % (eta, 2, mm))
     plt.tight_layout()
     plt.savefig("test-uniform.png")
+
 
 if __name__ == "__main__":
     test_uniform()

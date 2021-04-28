@@ -4,7 +4,7 @@ import jax
 import jax.numpy as jnp
 
 from ..constants import C, G
-from ..utils import get_f_isco, ms_to_M_eta
+from ..utils import get_f_isco, ms_to_Mc_eta
 
 """
 TaylorF2ReducedSpin waveform, in terms of the dimensionless chirp times (th0,
@@ -59,7 +59,7 @@ def get_th_boundary_interps(m_min, m_max, f_0=20.0, n=200):
 
     # Lower boundary
     ms = jnp.linspace(m_min, m_max, n)
-    M_chirps = ms_to_M_eta(jnp.stack([ms, ms]))[0]
+    M_chirps = ms_to_Mc_eta(jnp.stack([ms, ms]))[0]
     etas = jnp.full_like(M_chirps, 0.25)
     th0_lows, th3_lows = phys_to_th(jnp.stack([M_chirps, etas, chis]), f_0)[:2, ::-1]
     interp_low = lambda th0: jnp.interp(
@@ -67,12 +67,12 @@ def get_th_boundary_interps(m_min, m_max, f_0=20.0, n=200):
     )
 
     # Upper boundary
-    M_chirps, etas = ms_to_M_eta(jnp.stack([ms, jnp.full_like(ms, m_max)]))
+    M_chirps, etas = ms_to_Mc_eta(jnp.stack([ms, jnp.full_like(ms, m_max)]))
     th0_highs_1, th3_highs_1 = phys_to_th(jnp.stack([M_chirps, etas, chis]), f_0)[
         :2, ::-1
     ]
 
-    M_chirps, etas = ms_to_M_eta(jnp.stack([ms, jnp.full_like(ms, m_min)]))
+    M_chirps, etas = ms_to_Mc_eta(jnp.stack([ms, jnp.full_like(ms, m_min)]))
     th0_highs_2, th3_highs_2 = phys_to_th(jnp.stack([M_chirps, etas, chis]), f_0)[
         :2, ::-1
     ]

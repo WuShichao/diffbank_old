@@ -34,7 +34,7 @@ def match(theta, del_t, del_theta, amp, Psi, fs, Sn):
 @partial(jit, static_argnums=(1, 2, 4))
 def get_gam(theta, amp, Psi, fs, Sn):
     """
-    Metric for t₀ and intrinsic parameters.
+    Metric for t_0 and intrinsic parameters.
     """
     hess_func = lambda delta: match(theta, delta[0], delta[1:], amp, Psi, fs, Sn)
     del_theta = jnp.zeros(theta.size + 1)

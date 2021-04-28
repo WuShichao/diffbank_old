@@ -1,3 +1,4 @@
+from functools import cached_property
 import os
 from typing import Callable, NamedTuple, Optional, Union
 
@@ -7,7 +8,7 @@ import jax
 import jax.numpy as jnp
 from tqdm.auto import trange
 
-from .metric import get_density
+from .metric import get_density, get_g, get_gam
 from .utils import (
     gen_templates_rejection,
     get_effectualness,
@@ -47,6 +48,9 @@ class Bank:
         self.templates: jnp.ndarray = None
         self.effectualnesses: jnp.ndarray = None
 
+        # Key doesn't matter
+        self._dim = self.sampler(jax.random.PRNGKey(1), 1).shape[-1]
+
     def __str__(self):
         return f"Bank(m_star={float(self.m_star)}, eta={float(self.eta)}, dim={self.dim}, name='{self.name}')"
 
@@ -79,13 +83,27 @@ class Bank:
 
     @property
     def dim(self) -> jnp.ndarray:
-        return self.sampler(jax.random.PRNGKey(1), 1).shape[-1]  # key doesn't matter
+        return self._dim
 
     def get_density(self, theta) -> jnp.ndarray:
         """
         Template density, sqrt(|g|).
         """
         return get_density(theta, self.amp, self.Psi, self.fs, self.Sn)
+
+    def get_g(self, theta) -> jnp.ndarray:
+        """
+        Parameter space metric maximized over extrinsic parameters t_0 and
+        Phi_0, g.
+        """
+        return get_g(theta, self.amp, self.Psi, self.fs, self.Sn)
+
+    def get_gam(self, theta) -> jnp.ndarray:
+        """
+        t_0 and parameter space metric maximized over the extrinsic parameter
+        Phi_0, gamma.
+        """
+        return get_gam(theta, self.amp, self.Psi, self.fs, self.Sn)
 
     def compute_n_templates(self, key: jnp.ndarray, n_samples: Union[int, jnp.ndarray]):
         """
