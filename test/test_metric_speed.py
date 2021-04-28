@@ -10,7 +10,7 @@ def test_metric_speed():
     """
     Tests that the metric calculation runs, and times it.
     """
-    f = jnp.linspace(10, 500, 10000)
+    f = jnp.linspace(30.0, 512.0, 1000)
 
     print(
         "Match:",

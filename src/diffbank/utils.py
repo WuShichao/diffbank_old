@@ -37,6 +37,24 @@ def get_f_isco(m):
 #     return sample_thetas.T
 
 
+def get_M_eta_sampler(M_range, eta_range) -> Callable[[jnp.ndarray, int], jnp.ndarray]:
+    """
+    Uniformly samples over the specified ranges
+    """
+
+    def sampler(key, n):
+        M_eta = random.uniform(
+            key,
+            minval=jnp.array([M_range[0], eta_range[0]]),
+            maxval=jnp.array([M_range[1], eta_range[1]]),
+            shape=(n, 2),
+        )
+        # return jnp.stack([ms.max(axis=1), ms.min(axis=1)]).T
+        return M_eta
+
+    return sampler
+
+
 def get_m1_m2_sampler(m1_range, m2_range) -> Callable[[jnp.ndarray, int], jnp.ndarray]:
     """
     Uniformly samples over the specified ranges, with the restriction that the
@@ -143,7 +161,7 @@ def get_n_templates(
 
     The waveform models dimension is inferred from prange which should be nx2 array
 
-    To do this we just need to compute equation 15 from
+    To do this we just need to compute equation 14 from
     https://arxiv.org/pdf/0809.5223.pdf
     """
     dim = sampler(key, 1).shape[-1]  # fine to reuse key here!

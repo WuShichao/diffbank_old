@@ -2,7 +2,7 @@ from math import pi
 
 import jax.numpy as jnp
 
-from ..constants import C, G
+from ..constants import C, G, MSUN
 
 
 """
@@ -10,8 +10,9 @@ from ..constants import C, G
 """
 
 
-def Psi_Meta(f: jnp.ndarray, theta: jnp.ndarray) -> jnp.ndarray:
+def Psi(f: jnp.ndarray, theta: jnp.ndarray) -> jnp.ndarray:
     M, eta = theta
+    M *= MSUN
     x = pi * G * M * f / C ** 3  # dimensionless
     return (
         3
@@ -36,8 +37,8 @@ def ms_to_Meta(ms: jnp.ndarray) -> jnp.ndarray:
     return jnp.array([M, eta])
 
 
-def Psi(f: jnp.ndarray, theta: jnp.ndarray) -> jnp.ndarray:
-    return Psi_Meta(f, ms_to_Meta(theta))
+# def Psi(f: jnp.ndarray, theta: jnp.ndarray) -> jnp.ndarray:
+#     return Psi_Meta(f, ms_to_Meta(theta))
 
 
 def amp(f: jnp.ndarray, theta: jnp.ndarray) -> jnp.ndarray:
