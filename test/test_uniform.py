@@ -23,7 +23,7 @@ m_min, m_max = jnp.array(0.0), jnp.array(3.0)
 naive_vol = (m_max - m_min) ** 2
 eta = 0.99
 mm = 0.9  # minimum match
-m_star = 1 - mm  # minimum mismatch
+m_star = 1 - mm  # maximum mismatch
 
 # Euclidean metric
 def density_fun(_):

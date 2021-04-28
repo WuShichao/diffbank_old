@@ -54,6 +54,10 @@ class Bank:
         return str(self)  # for now
 
     @property
+    def minimum_match(self):
+        return 1 - self.m_star
+
+    @property
     def m_star(self):
         return self._m_star
 
