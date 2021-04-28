@@ -7,7 +7,7 @@ from scipy.interpolate import griddata
 
 from diffbank.constants import MSUN
 from diffbank.metric import get_density
-from diffbank.utils import ms_to_M_eta
+from diffbank.utils import ms_to_Mc_eta
 from diffbank.waveforms.taylorf2reducedspin import (
     Psi,
     amp,
@@ -84,7 +84,7 @@ def make_density_plot(fig_path, n_m1s, n_m2s, n_th0s, n_th3s):
     m1s, m2s = jnp.array(list(product(m1s, m2s))).T
     m1s, m2s = m1s[m1s >= m2s], m2s[m1s >= m2s]  # remove redundant systems
     m1s, m2s = m1s[m1s + m2s <= M_max], m2s[m1s + m2s <= M_max]
-    M_chirps, etas = ms_to_M_eta(jnp.stack([m1s, m2s]))
+    M_chirps, etas = ms_to_Mc_eta(jnp.stack([m1s, m2s]))
     chis = [-0.3, 0.0, 0.3]
 
     # Plotting configuration

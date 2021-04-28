@@ -9,7 +9,7 @@ from jax.scipy.special import gammaln
 from .constants import C, G
 
 
-def ms_to_M_eta(m):
+def ms_to_Mc_eta(m):
     m1, m2 = m
     return (m1 * m2) ** (3 / 5) / (m1 + m2) ** (1 / 5), m1 * m2 / (m1 + m2) ** 2
 
@@ -28,13 +28,6 @@ def get_f_isco(m):
 #     return type(nt)(**updates, **d)
 #
 #
-# def gen_samples_from_ranges_Meta(prange, n, N):
-#     sample_thetas = np.random.uniform(prange[0, 0], prange[0, 1], N)
-#     for i in range(n - 1):
-#         p2s = np.random.uniform(prange[i + 1, 0], prange[i + 1, 1], N)
-#         sample_thetas = jnp.vstack([sample_thetas, p2s])
-#
-#     return sample_thetas.T
 
 
 def get_M_eta_sampler(M_range, eta_range) -> Callable[[jnp.ndarray, int], jnp.ndarray]:
