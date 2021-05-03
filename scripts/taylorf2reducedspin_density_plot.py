@@ -66,7 +66,7 @@ def make_density_plot(fig_path, n_m1s, n_m2s, n_th0s, n_th3s):
     m_min = jnp.array(1.0) * MSUN
     m_max = jnp.array(20.0) * MSUN
     # Total mass
-    M_max = jnp.array(21.0) * MSUN
+    M_max = m_min + m_max
 
     # (th0, th3) boundaries
     (th0_min, th0_max), bound_itp_low, bound_itp_high = get_th_boundary_interps(
