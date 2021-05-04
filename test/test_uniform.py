@@ -1,3 +1,4 @@
+import click
 from math import sqrt
 
 from matplotlib.collections import PatchCollection
@@ -20,20 +21,10 @@ effectualness greater than the minimum match includes eta.
 """
 
 # Globals
-m_min, m_max = jnp.array(0.0), jnp.array(3.0)
-naive_vol = (m_max - m_min) ** 2
-eta = 0.99
-mm = 0.9  # minimum match
-m_star = 1 - mm  # maximum mismatch
 
 # Euclidean metric
 def density_fun(_):
     return jnp.array(1.0)
-
-
-# Uniform sampler
-def sampler(key, n):
-    return random.uniform(key, (n, 2), minval=m_min, maxval=m_max)
 
 
 @jax.jit
@@ -45,9 +36,23 @@ def get_eff(x, y):
     return 1 - jnp.sum((x - y) ** 2)
 
 
-def test_uniform():
+@click.command()
+@click.option("--key", default=8539, help="PRNG key")
+@click.option("--m_max", default=1.5, help="maximum parameter value")
+@click.option("--eta", default=0.99)
+@click.option("--mm", default=0.9, help="minimum match")
+@click.option("--plot/--no-plot", default=False, help="save plot")
+def run(key, m_max, eta, mm, plot):
+    m_min, m_max = jnp.array(0.0), jnp.array(m_max)
+    naive_vol = (m_max - m_min) ** 2
+    m_star = 1 - mm  # maximum mismatch
+
+    # Uniform sampler
+    def sampler(key, n):
+        return random.uniform(key, (n, 2), minval=m_min, maxval=m_max)
+
     # Generate bank
-    key = random.PRNGKey(198)
+    key = random.PRNGKey(key)
     n_templates = get_n_templates(
         key, naive_vol, 1000, density_fun, sampler, eta, m_star
     )
@@ -77,37 +82,42 @@ def test_uniform():
     # Test that the bank was generated consistently
     assert eff_frac - 5 * eff_frac_err < eta and eta < eff_frac + 5 * eff_frac_err
 
-    # Plot
-    plt.figure(figsize=(8, 3.2))
+    if plot:
+        # Plot
+        plt.figure(figsize=(8, 3.2))
 
-    # Effectualnesses
-    plt.subplot(1, 2, 1)
-    plt.hist(effectualnesses)
-    plt.axvline(mm, color="r")
-    plt.xlabel("Effectualness")
-    plt.ylabel("Frequency")
-    plt.title(r"$%.3f \pm %.3f$ above %g" % (eff_frac, eff_frac_err, m_star))
+        # Effectualnesses
+        plt.subplot(1, 2, 1)
+        plt.hist(effectualnesses)
+        plt.axvline(mm, color="r")
+        plt.xlabel("Effectualness")
+        plt.ylabel("Frequency")
+        plt.title(r"$%.3f \pm %.3f$ above %g" % (eff_frac, eff_frac_err, m_star))
 
-    # Templates
-    plt.subplot(1, 2, 2)
-    circles = []
-    for x, y in templates:
-        circles.append(plt.Circle((x, y), radius=sqrt(m_star)))
-    circles = PatchCollection(circles, zorder=0, alpha=0.2)
-    plt.gca().add_collection(circles)
-    plt.scatter(*templates.T, s=15, c="C1", marker="x")
-    plt.scatter(*points.T, s=1, c="r")
-    plt.xlim(m_min, m_max)
-    plt.ylim(m_min, m_max)
-    plt.xlabel(r"$x_1$")
-    plt.ylabel(r"$x_2$")
-    plt.title("Template bank")
-    plt.gca().set_aspect("equal")
+        # Templates
+        plt.subplot(1, 2, 2)
+        circles = []
+        for x, y in templates:
+            circles.append(plt.Circle((x, y), radius=sqrt(m_star)))
+        circles = PatchCollection(circles, zorder=0, alpha=0.2)
+        plt.gca().add_collection(circles)
+        plt.scatter(*templates.T, s=15, c="C1", marker="x")
+        plt.scatter(*points.T, s=1, c="r")
+        plt.xlim(m_min, m_max)
+        plt.ylim(m_min, m_max)
+        plt.xlabel(r"$x_1$")
+        plt.ylabel(r"$x_2$")
+        plt.title("Template bank")
+        plt.gca().set_aspect("equal")
 
-    plt.suptitle(r"$^{%g}\mathcal{R}_{%i}(%g)$" % (eta, 2, mm))
-    plt.tight_layout()
-    plt.savefig("test-uniform.png")
+        plt.suptitle(r"$^{%g}\mathcal{R}_{%i}(%g)$" % (eta, 2, mm))
+        plt.tight_layout()
+        plt.savefig("test-uniform.png")
+
+
+def test():
+    run(45389, 2.0, 0.99, 0.95, False)
 
 
 if __name__ == "__main__":
-    test_uniform()
+    run()
