@@ -1,4 +1,4 @@
-from functools import cached_property
+# from functools import cached_property
 import os
 from typing import Callable, NamedTuple, Optional, Union
 
@@ -187,7 +187,7 @@ class Bank:
         Computes effectualnesses for a sample of parameter points.
         """
         n_test = len(points)
-        effectualnesses = np.zeros(n_test)
+        effectualnesses = np.zeros((n_test, 1))
 
         get_eff_jit = jax.jit(
             lambda template, sample: get_effectualness(
@@ -200,4 +200,4 @@ class Bank:
                 lambda template: get_eff_jit(template, points[i]), self.templates
             ).max()
 
-        self.effectualnesses = jnp.array(effectualnesses)
+        self.effectualnesses = jnp.hstack((points, effectualnesses))
