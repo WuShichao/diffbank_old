@@ -4,9 +4,9 @@ from diffbank.bank import Bank
 import jax.numpy as jnp
 from jax import random
 
-# from diffbank.waveforms.threePN_simple import amp, Psi
+from diffbank.waveforms.threePN_simple import amp, Psi
 
-from diffbank.waveforms.twoPN_simple import amp, Psi
+# from diffbank.waveforms.twoPN_simple import amp, Psi
 from diffbank.utils import get_M_eta_sampler, Sn_func
 from diffbank.metric import get_metric_ellipse
 import matplotlib.pyplot as plt
@@ -20,6 +20,8 @@ def gen_effectualness():
     eta_range = (0.13888, 0.25)
     vol = jnp.array((M_range[1] - M_range[0]) * (eta_range[1] - eta_range[0]))
     sampler = get_M_eta_sampler(M_range, eta_range)
+    mismatch = 0.95
+    eta = 0.99
     bank = Bank(
         amp,
         Psi,
@@ -27,8 +29,8 @@ def gen_effectualness():
         Sn_func,
         sampler,
         naive_vol=vol,
-        m_star=1 - 0.9,
-        eta=0.99,
+        m_star=1 - mismatch,
+        eta=eta,
         name="3PN",
     )
 
@@ -60,9 +62,21 @@ def gen_effectualness():
     mask = effectualness_points
     # effectualness_points = sampler(key, N_effectualness_points)
     bank.compute_effectualnesses(effectualness_points)
+    import numpy as np
+
+    mask = np.logical_and(
+        effectualness_points[:, 0] < 5.5, effectualness_points[:, 0] > 4.5
+    ) & np.logical_and(
+        effectualness_points[:, 1] < 0.23, effectualness_points[:, 1] > 0.16
+    )
+    masked_effectualness = bank.effectualnesses[mask]
     print(
-        "Fraction of templates above 0.95:",
-        sum(bank.effectualnesses > 0.95) / bank.effectualnesses.size,
+        "Fraction of templates above %.2f:" % mismatch,
+        sum(bank.effectualnesses[:, -1] > mismatch) / bank.effectualnesses[:, -1].size,
+    )
+    print(
+        "Fraction of templates above %.2f:" % mismatch,
+        sum(masked_effectualness[:, -1] > mismatch) / masked_effectualness[:, -1].size,
     )
     bank.save_bank()
 
