@@ -1,5 +1,5 @@
 import os
-from typing import Callable, Union
+from typing import Callable, Set, Optional, Union
 import warnings
 
 import numpy as np
@@ -21,6 +21,31 @@ class Bank:
     """
     Template bank container.
     """
+
+    computed_vars: Set[str] = set(
+        [
+            "density_max",
+            "frac_in_bounds",
+            "frac_in_bounds_err",
+            "n_templates",
+            "n_templates_err",
+            "templates",
+            "effectualness_points",
+            "effectualnesses",
+            "_eta_est",
+            "_eta_est_err",
+            "_dim",
+        ]
+    )
+    provided_vars: Set[str] = set(
+        [
+            "fs",
+            "naive_vol",
+            "m_star",
+            "eta",
+            "name",
+        ]
+    )
 
     def __init__(
         self,
@@ -52,7 +77,10 @@ class Bank:
         self.n_templates: jnp.ndarray = None
         self.n_templates_err: jnp.ndarray = None
         self.templates: jnp.ndarray = None
+        self.effectualness_points: jnp.ndarray = None
         self.effectualnesses: jnp.ndarray = None
+        self._eta_est: jnp.ndarray = None
+        self._eta_est_err: jnp.ndarray = None
 
         # Key doesn't matter
         self._dim = self.sampler(jax.random.PRNGKey(1), 1).shape[-1]
@@ -80,6 +108,14 @@ class Bank:
     @property
     def eta(self):
         return self._eta
+
+    @property
+    def eta_est(self):
+        return self._eta_est
+
+    @property
+    def eta_est_err(self):
+        return self._eta_est_err
 
     @eta.setter
     def eta(self, eta):
@@ -133,7 +169,7 @@ class Bank:
             )
             vol_correction = 1.0
         else:
-            vol_correction = self.frac_in_bounds**(2 / self.dim)
+            vol_correction = self.frac_in_bounds ** (2 / self.dim)
 
         self.n_templates, self.n_templates_err = get_n_templates(
             key,
@@ -162,59 +198,68 @@ class Bank:
         """
         self.templates = self.gen_templates_rejection(key, self.n_templates)
 
-    def save_bank(self, path: str = ""):
+    def save(self, path: str = ""):
         """
         Saves template bank non-function attributes to a npz file.
         """
-        d = {
-            "fs": self.fs,
-            "naive_vol": self.naive_vol,
-            "m_star": self.m_star,
-            "eta": self.eta,
-            "name": self.name,
-            "density_max": self.density_max,
-            "n_templates": self.n_templates,
-            "templates": self.templates,
-            "effectualnesses": self.effectualnesses,
-        }
+        d = {k: getattr(self, k) for k in self.provided_vars | self.computed_vars}
         jnp.savez(os.path.join(path, f"{self.name}.npz"), bank=d)
 
     @classmethod
-    def load_bank(
+    def load(
         cls,
         path: str,
         amp: Callable[[jnp.ndarray, jnp.ndarray], jnp.ndarray],
         Psi: Callable[[jnp.ndarray, jnp.ndarray], jnp.ndarray],
         Sn: Callable[[jnp.ndarray], jnp.ndarray],
         sampler: Callable[[jnp.ndarray, int], jnp.ndarray],
+        is_in_bounds: Callable[[jnp.ndarray], jnp.ndarray],
     ):
         """
         Loads template bank non-function attributes from a npz file.
         """
         d = jnp.load(path, allow_pickle=True)["bank"].item()
-        bank = cls(
-            amp,
-            Psi,
-            d["fs"],
-            Sn,
-            sampler,
-            d["naive_vol"],
-            d["m_star"],
-            d["eta"],
-            d["name"],
-        )
-        bank.density_max = d["density_max"]
-        bank.n_templates = d["n_templates"]
-        bank.templates = d["templates"]
-        bank.effectualnesses = d["effectualnesses"]
+        if d.keys() != cls.provided_vars | cls.computed_vars:
+            raise ValueError("missing or extra keys in bank file")
+
+        fn_kwargs = {
+            "amp": amp,
+            "Psi": Psi,
+            "Sn": Sn,
+            "sampler": sampler,
+            "is_in_bounds": is_in_bounds,
+        }
+        bank = cls(**{**fn_kwargs, **{name: d[name] for name in cls.provided_vars}})
+
+        for name in cls.computed_vars:
+            setattr(bank, name, d[name])
+
         return bank
 
-    def compute_effectualnesses(self, points: jnp.ndarray):
+    def compute_effectualnesses(
+        self,
+        key: Optional[jnp.ndarray] = None,
+        n: Optional[int] = None,
+        points: Optional[jnp.ndarray] = None,
+    ):
         """
-        Computes effectualnesses for a sample of parameter points.
+        Computes effectualnesses for a sample of parameter points, adds the
+        points as the attribute ``effectualness_points`` and uses this to
+        estimate ``eta``. The estimate of ``eta`` and the associated error are
+        accessible through the ``eta_est`` and ``eta_est_err`` properties.
+
+        If ``points`` is provided, the effectualness will be computed using
+        this sample. Otherwise ``n`` points will be drawn uniformly in proper
+        volume using the PRNG key ``key``.
         """
-        n_test = len(points)
-        effectualnesses = np.zeros((n_test, 1))
+        if points is not None:
+            n = len(points)
+        elif key is not None and n is not None:
+            points = self.gen_templates_rejection(key, n)
+        else:
+            raise ValueError("either 'points' or both 'key' and 'n' must be provided")
+
+        effectualnesses = np.zeros(n)
 
         get_eff_jit = jax.jit(
             lambda template, sample: get_effectualness(
@@ -222,9 +267,24 @@ class Bank:
             )
         )
 
-        for i in trange(n_test):
-            effectualnesses[i] = jax.lax.map(
-                lambda template: get_eff_jit(template, points[i]), self.templates
-            ).max()
+        pbar = trange(n)
 
-        self.effectualnesses = jnp.hstack((points, effectualnesses))
+        try:
+            for i in pbar:
+                effectualnesses[i] = jax.lax.map(
+                    lambda template: get_eff_jit(template, points[i]), self.templates
+                ).max()
+
+                # Keep track of eta estimate. Should be fast enough to keep in
+                # the loop.
+                self._eta_est = jnp.mean(effectualnesses[:i] > self.minimum_match)
+                self._eta_est_err = jnp.std(
+                    effectualnesses[:i] > self.minimum_match
+                ) / jnp.sqrt(i)
+
+                pbar.set_postfix_str(
+                    f"eta ~ {self.eta_est:.3f} +/- {self.eta_est_err:.3f}"
+                )
+        finally:
+            self.effectualnesses = jnp.array(effectualnesses)
+            self.effectualness_points = points
