@@ -1,6 +1,6 @@
-# from functools import cached_property
 import os
-from typing import Callable, NamedTuple, Optional, Union
+from typing import Callable, Union
+import warnings
 
 import numpy as np
 
@@ -13,6 +13,7 @@ from .utils import (
     gen_templates_rejection,
     get_effectualness,
     get_n_templates,
+    get_template_frac_in_bounds,
 )
 
 
@@ -31,6 +32,7 @@ class Bank:
         naive_vol: jnp.ndarray,
         m_star: Union[float, jnp.ndarray],
         eta: Union[float, jnp.ndarray],
+        is_in_bounds: Callable[[jnp.ndarray], jnp.ndarray],
         name: str = "test",
     ):
         self.amp = amp
@@ -41,10 +43,14 @@ class Bank:
         self.naive_vol = naive_vol
         self.m_star = m_star
         self.eta = eta
+        self.is_in_bounds = is_in_bounds
         self.name = name
 
         self.density_max: jnp.ndarray = None
+        self.frac_in_bounds: jnp.ndarray = None
+        self.frac_in_bounds_err: jnp.ndarray = None
         self.n_templates: jnp.ndarray = None
+        self.n_templates_err: jnp.ndarray = None
         self.templates: jnp.ndarray = None
         self.effectualnesses: jnp.ndarray = None
 
@@ -105,18 +111,38 @@ class Bank:
         """
         return get_gam(theta, self.amp, self.Psi, self.fs, self.Sn)
 
+    def compute_template_frac_in_bounds(self, key, n_pts, n_per_pt):
+        """
+        Sets the fraction of points in the average template's metric ellipse
+        that lie in the parameter space.
+        """
+        thetas = self.gen_templates_rejection(key, n_pts)
+        self.frac_in_bounds, self.frac_in_bounds_err = get_template_frac_in_bounds(
+            key, thetas, self.get_g, self.m_star, self.is_in_bounds, n_per_pt
+        )
+
     def compute_n_templates(self, key: jnp.ndarray, n_samples: Union[int, jnp.ndarray]):
         """
         Sets the number of templates for the bank.
         """
-        self.n_templates = get_n_templates(
+        if self.frac_in_bounds is None:
+            warnings.warn(
+                "'frac_in_bounds' has not been computed, so number of "
+                "templates will be underestimated",
+                RuntimeWarning,
+            )
+            vol_correction = 1.0
+        else:
+            vol_correction = self.frac_in_bounds**(2 / self.dim)
+
+        self.n_templates, self.n_templates_err = get_n_templates(
             key,
             self.naive_vol,
             n_samples,
             self.get_density,
             self.sampler,
             self.eta,
-            self.m_star,
+            self.m_star * vol_correction,
         )
 
     def gen_templates_rejection(self, key: jnp.ndarray, n_templates) -> jnp.ndarray:
@@ -125,6 +151,7 @@ class Bank:
         """
         if self.density_max is None:
             raise ValueError("Must set bank's 'density_max' attribute")
+
         return gen_templates_rejection(
             key, self.density_max, n_templates, self.get_density, self.sampler
         )

@@ -1,5 +1,5 @@
 from math import pi
-from typing import Callable
+from typing import Callable, Tuple
 
 import jax
 from jax import random
@@ -32,7 +32,7 @@ def get_f_isco(m):
 
 def get_M_eta_sampler(M_range, eta_range) -> Callable[[jnp.ndarray, int], jnp.ndarray]:
     """
-    Uniformly samples over the specified ranges
+    Uniformly samples over the specified ranges.
     """
 
     def sampler(key, n):
@@ -42,7 +42,6 @@ def get_M_eta_sampler(M_range, eta_range) -> Callable[[jnp.ndarray, int], jnp.nd
             maxval=jnp.array([M_range[1], eta_range[1]]),
             shape=(n, 2),
         )
-        # return jnp.stack([ms.max(axis=1), ms.min(axis=1)]).T
         return M_eta
 
     return sampler
@@ -115,30 +114,6 @@ def get_sphere_vol(n) -> jnp.ndarray:
     return pi ** (n / 2) / jnp.exp(gammaln((n / 2) + 1))
 
 
-def get_vol_from_samples(
-    naive_vol, thetas, density_fun: Callable[[jnp.ndarray], jnp.ndarray]
-) -> jnp.ndarray:
-    """
-    Computes parameter space volume using MC integration given some samples.
-    """
-    densities = jax.lax.map(density_fun, thetas)
-    return jnp.mean(densities) * naive_vol
-
-
-def get_vol(
-    key,
-    naive_vol,
-    n_samples,
-    density_fun: Callable[[jnp.ndarray], jnp.ndarray],
-    sampler: Callable[[jnp.ndarray, int], jnp.ndarray],
-) -> jnp.ndarray:
-    """
-    Computes parameter space volume using MC integration.
-    """
-    thetas = sampler(key, n_samples)
-    return get_vol_from_samples(naive_vol, thetas, density_fun)
-
-
 def get_n_templates(
     key,
     naive_vol,
@@ -147,22 +122,35 @@ def get_n_templates(
     sampler: Callable[[jnp.ndarray, int], jnp.ndarray],
     eta,
     m_star,
-) -> jnp.ndarray:
+) -> Tuple[jnp.ndarray, jnp.ndarray]:
     """
-    This function computes the number of templates for a specific waveform
-    model specified by the phase and amplitude
+    Estimates number of templates required to cover a parameter space with a
+    random bank.
 
-    The waveform models dimension is inferred from prange which should be nx2 array
+    Args:
+      naive_vol: parameter space volume ignoring the metric. For example, a
+        waveform parametrized by (x, y) with 0 < x < x_max and 0 < y < x would
+        have naive_vol = 1/2 * x_max**2 regardless of the metric.
 
-    To do this we just need to compute equation 14 from
-    https://arxiv.org/pdf/0809.5223.pdf
+    Returns:
+      MC estimate (and error) for required number of templates.
+
+
+    Reference:
+      Eq. 14 in https://arxiv.org/abs/0809.5223
     """
     dim = sampler(key, 1).shape[-1]  # fine to reuse key here!
-    vol_space = get_vol(key, naive_vol, n_samples, density_fun, sampler)
+
+    # Volume of a single template
     vol_sphere = get_sphere_vol(dim)
-    return jnp.ceil(
-        jnp.log(1 - eta) / jnp.log(1 - m_star ** (dim / 2) * vol_sphere / vol_space)
-    ).astype(int)
+
+    # MC samples of number of templates
+    thetas = sampler(key, n_samples)
+    densities = jax.lax.map(density_fun, thetas)
+    space_vols = densities * naive_vol
+    ns = jnp.log(1 - eta) / jnp.log(1 - m_star ** (dim / 2) * vol_sphere / space_vols)
+
+    return jnp.mean(ns).astype(int), jnp.std(ns) / jnp.sqrt(n_samples)
 
 
 def _gen_template_rejection(
@@ -176,17 +164,18 @@ def _gen_template_rejection(
     """
 
     def cond_fun(val):
-        theta, u_key = val[0], val[2]
+        theta, u_key = val[0], val[3]
         u = random.uniform(u_key)
         return u >= density_fun(theta) / density_max
 
     def body_fun(val):
-        theta_key = val[1]
-        _, theta_key, u_key = random.split(theta_key, 3)
+        key = val[1]
+        key, theta_key, u_key = random.split(key, 3)
         theta = sampler(theta_key, 1)[0]
-        return (theta, theta_key, u_key)
+        return (theta, key, theta_key, u_key)  # new val
 
-    init_val = body_fun((key, key))  # only second element of init_val matters
+    # Only second element of init_val matters
+    init_val = body_fun((None, key, None, None))
 
     return jax.lax.while_loop(cond_fun, body_fun, init_val)[0]
 
@@ -201,8 +190,77 @@ def gen_templates_rejection(
     """
     Generates a bank with n_templates samples using rejection sampling.
 
-    TODO: add tqdm somehow.
+    TODO: add tqdm somehow?
     """
-    keys = random.split(key, n_templates + 1)[1:]
+    keys = random.split(key, n_templates)
     f = lambda key: _gen_template_rejection(key, density_max, density_fun, sampler)
     return jax.lax.map(f, keys)
+
+
+def sample_uniform_ball(key, dim, shape: Tuple[int] = (1,)) -> jnp.ndarray:
+    """
+    Uniformly sample from the unit ball.
+    """
+    xs = random.normal(key, shape + (dim,))
+    abs_xs = jnp.sqrt(jnp.sum(xs ** 2, axis=-1, keepdims=True))
+    sphere_samples = xs / abs_xs
+    rs = random.uniform(key, shape + (1,)) ** (1 / dim)
+    return sphere_samples * rs
+
+
+def sample_uniform_metric_ellipse(
+    key: jnp.ndarray,
+    g: jnp.ndarray,
+    # theta: jnp.ndarray,
+    # get_g: Callable[[jnp.ndarray], jnp.ndarray],
+    # m_star,
+    n: int,
+) -> jnp.ndarray:
+    """
+    Uniformly sample inside a metric ellipse centered at the origin.
+    """
+    dim = g.shape[1]
+    # radius = jnp.sqrt(m_star)
+    ball_samples = sample_uniform_ball(key, dim, (n,))
+    trafo = jnp.linalg.inv(jnp.linalg.cholesky(g))
+    return ball_samples @ trafo.T
+
+
+def get_template_frac_in_bounds(
+    key: jnp.ndarray,
+    thetas: jnp.ndarray,
+    get_g: Callable[[jnp.ndarray], jnp.ndarray],
+    m_star,
+    is_in_bounds: Callable[[jnp.ndarray], jnp.ndarray],
+    n: int,
+) -> Tuple[jnp.ndarray, jnp.ndarray]:
+    """
+    Estimates average fraction of a template's metric ellipse lying inside the
+    parameter space.
+
+    Args:
+      is_in_bounds: callable that takes a point and returns 1 if it is in the
+        parameter space and 0 if not.
+
+    Returns:
+      MC estimate (along with error) of the fraction of the volume of the
+      templates centered on ``theta`` that lies in the parameter space.
+    """
+
+    def helper(x):
+        """
+        Rescale metric ellipse samples to have radius ``sqrt(m_star)`` and
+        recenter on ``theta``.
+        """
+        key = x[0].astype(jnp.uint32)
+        theta = x[1]
+        ellipse_samples_0 = sample_uniform_metric_ellipse(key, get_g(theta), n)
+        return jnp.sqrt(m_star) * ellipse_samples_0 + theta
+
+    keys = random.split(key, len(thetas))
+    dim = thetas.shape[1]
+    ellipse_samples = jax.lax.map(helper, jnp.stack([keys, thetas], axis=1)).reshape(
+        [-1, dim]
+    )
+    in_bounds = jax.lax.map(is_in_bounds, ellipse_samples)
+    return in_bounds.mean(), in_bounds.std() / jnp.sqrt(len(thetas) * n)

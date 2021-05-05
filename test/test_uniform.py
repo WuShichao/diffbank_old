@@ -53,9 +53,10 @@ def run(key, m_max, eta, mm, plot):
 
     # Generate bank
     key = random.PRNGKey(key)
-    n_templates = get_n_templates(
+    n_templates, n_templates_err = get_n_templates(
         key, naive_vol, 1000, density_fun, sampler, eta, m_star
     )
+    assert n_templates_err / n_templates < 0.1
     _, key = random.split(key)
 
     print(f"{n_templates} templates required")
