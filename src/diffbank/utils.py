@@ -146,28 +146,39 @@ def get_n_templates(
     # Uncorrected template ellipsoid volume
     vol_template = m_star ** (dim / 2) * get_sphere_vol(dim)
 
-    # MC samples of number of templates
+    # Parameter space volume
     thetas = sampler(key, n_samples)
-    space_vols = naive_vol * jax.lax.map(density_fun, thetas)
-    vol_ratios = vol_template / space_vols
-    ns = jnp.log(1 - eta) / jnp.log(1 - frac_in_bounds * vol_ratios)
-    n_mean = jnp.mean(ns).astype(int)
-    n_err_vol = jnp.std(ns) / jnp.sqrt(n_samples)
+    vol_spaces = naive_vol * jax.lax.map(density_fun, thetas)
+    vol_space = jnp.mean(vol_spaces)
 
-    # Propagate the error on the fraction of the average template's volume that
-    # lies in bounds
-    vol_ratio_mean = jnp.mean(vol_ratios)
-    n_err_ib = (
-        frac_in_bounds_err
-        * vol_ratio_mean
+    # MC samples of number of templates
+    n = jnp.log(1 - eta) / jnp.log(1 - frac_in_bounds * vol_template / vol_space)
+
+    # Propagate error from parameter space volume
+    vol_space_err = jnp.std(vol_spaces) / jnp.sqrt(n_samples)
+    n_err_vol = (
+        vol_space_err
+        * frac_in_bounds
+        * vol_template
         * jnp.log(1 - eta)
         / (
-            (1 - frac_in_bounds * vol_ratio_mean)
-            * jnp.log(1 - frac_in_bounds * vol_ratio_mean) ** 2
+            vol_space
+            * (frac_in_bounds * vol_template - vol_space)
+            * jnp.log(1 - frac_in_bounds * vol_template / vol_space) ** 2
         )
     )
 
-    return n_mean, jnp.sqrt(n_err_vol ** 2 + n_err_ib ** 2)
+    # Propagate error from fraction of template volume in bounds
+    n_err_fib = (
+        vol_template
+        * jnp.log(1 - eta)
+        / (
+            (vol_space - frac_in_bounds * vol_template)
+            * jnp.log(1 - frac_in_bounds * vol_template / vol_space)
+        )
+    )
+
+    return n, jnp.sqrt(n_err_vol ** 2 + n_err_fib ** 2)
 
 
 def _gen_template_rejection(
