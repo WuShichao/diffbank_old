@@ -1,15 +1,19 @@
 from diffbank.bank import Bank
-import jax.numpy as jnp
+from diffbank.utils import Sn_func, get_m1_m2_sampler
+from diffbank.waveforms.threePN_simple import Psi, amp
 from jax import random
-from diffbank.waveforms.threePN_simple import amp, Psi
-from diffbank.utils import get_m1_m2_sampler, Sn_func
+import jax.numpy as jnp
 
 
 def test_save_load():
+    """
+    Test saving and loading.
+    """
     amp = lambda f, t: None
     Psi = lambda f, t: None
     Sn = lambda f: None
     sampler = lambda k, n: jnp.array([0.0, 0.9])
+    is_in_bounds = lambda t: jnp.array(1.0)
     bank = Bank(
         amp,
         Psi,
@@ -19,17 +23,18 @@ def test_save_load():
         jnp.array(1.0),
         0.05,
         0.99,
+        is_in_bounds,
         "save_test",
     )
     bank.density_max = jnp.array(100.0)
     bank.n_templates = jnp.array(5, dtype=int)
     bank.templates = jnp.array([[5.0, 4.0], [7.0, 79.0]])
     bank.effectualnesses = jnp.array([1.0, 0.2, 3.0, 6.0, 1.0, 45.0, 9.0])
-    bank.save_bank()
+    bank.save()
     bank_str = str(bank)
     print(bank_str)
 
-    loaded_bank = Bank.load_bank("save_test.npz", amp, Psi, Sn, sampler)
+    loaded_bank = Bank.load("save_test.npz", amp, Psi, Sn, sampler, is_in_bounds)
     loaded_bank_str = str(loaded_bank)
     print(loaded_bank_str)
 
@@ -46,14 +51,19 @@ def test_save_load():
     assert jnp.all(bank.n_templates == loaded_bank.n_templates)
     assert jnp.all(bank.templates == loaded_bank.templates)
     assert jnp.all(bank.effectualnesses == loaded_bank.effectualnesses)
+    assert bank.dim == loaded_bank.dim
 
 
 def test_generation():
+    """
+    Make sure template bank generation works.
+    """
     key = random.PRNGKey(84)
 
     fs = jnp.linspace(20.0, 2000.0, 300)
     m_range = (2.0, 3.0)
     sampler = get_m1_m2_sampler(m_range, m_range)
+    is_in_bounds = lambda _: jnp.array(1.0)  # doesn't matter for this test
     bank = Bank(
         amp,
         Psi,
@@ -63,19 +73,23 @@ def test_generation():
         naive_vol=jnp.array(4.0),
         m_star=1 - 0.95,
         eta=0.99,
+        is_in_bounds=is_in_bounds,
         name="3PN",
     )
 
     bank.density_max = jnp.array(bank.get_density(jnp.array([m_range[0], m_range[0]])))
 
-    bank.compute_n_templates(key, 1000)
-    _, key = random.split(key)
+    key, subkey = random.split(key)
+    bank.compute_template_frac_in_bounds(subkey, 20, 5)
+    assert bank.frac_in_bounds == 1.0
+
+    key, subkey = random.split(key)
+    bank.compute_n_templates(subkey, 1000)
 
     assert bank.n_templates > 0 and bank.n_templates < 1e5
-    print(bank.n_templates)
 
-    bank.fill_bank(key)
-    _, key = random.split(key)
+    key, subkey = random.split(key)
+    bank.fill_bank(subkey)
     assert len(bank.templates) == bank.n_templates
 
     # Make sure templates are in bounds

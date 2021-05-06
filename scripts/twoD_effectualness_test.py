@@ -2,7 +2,7 @@ import time
 
 from diffbank.bank import Bank
 import jax.numpy as jnp
-from jax import random
+from jax import random, jit
 
 from diffbank.waveforms.threePN_simple import amp, Psi
 
@@ -20,6 +20,32 @@ def gen_effectualness():
     eta_range = (0.13888, 0.25)
     vol = jnp.array((M_range[1] - M_range[0]) * (eta_range[1] - eta_range[0]))
     sampler = get_M_eta_sampler(M_range, eta_range)
+
+    @jit
+    def is_in_bounds(pt):
+        """
+        Acceptance probability for tau rejection sampling.
+        """
+        M, eta = pt
+        # There's got to be a better way to write this.
+        return jnp.where(
+            M < M_range[0],
+            jnp.array(0.0),
+            jnp.where(
+                M > M_range[1],
+                jnp.array(0.0),
+                jnp.where(
+                    eta < eta_range[0],
+                    jnp.array(0.0),
+                    jnp.where(
+                        eta > eta_range[1],
+                        jnp.array(0.0),
+                        jnp.array(1.0),
+                    ),
+                ),
+            ),
+        )
+
     mismatch = 0.95
     eta = 0.99
     bank = Bank(
@@ -31,6 +57,7 @@ def gen_effectualness():
         naive_vol=vol,
         m_star=1 - mismatch,
         eta=eta,
+        is_in_bounds=is_in_bounds,
         name="3PN",
     )
 
@@ -38,57 +65,32 @@ def gen_effectualness():
         bank.get_density(jnp.array([M_range[0], eta_range[0]]))
     )
 
-    bank.compute_n_templates(key, 1000)
-    _, key = random.split(key)
+    key, subkey = random.split(key)
+    bank.compute_template_frac_in_bounds(subkey, 1000, 10)
+    print(
+        f"{bank.frac_in_bounds * 100:.2f} +/- {bank.frac_in_bounds_err * 100:.2f} % "
+        "of template ellipses lies in bounds"
+    )
 
+    key, subkey = random.split(key)
+    bank.compute_n_templates(subkey, 1000)
     assert bank.n_templates > 0 and bank.n_templates < 1e5
-    print("Number of templates in the bank:", bank.n_templates)
+    print(f"{bank.n_templates} +/- {bank.n_templates_err} templates required")
 
-    # Now lets fill the bank
     t0 = time.time()
-    bank.fill_bank(key)
-    _, key = random.split(key)
+    key, subkey = random.split(key)
+    bank.fill_bank(subkey)
     assert len(bank.templates) == bank.n_templates
     t1 = time.time()
-
     total = t1 - t0
     print("Time to fill bank:", total)
     print("Time spent per template:", total / bank.n_templates)
 
     # Finally we can test the effectualness and save
-    print("Computing Effectualness")
-    N_effectualness_points = 1000
-    effectualness_points = bank.gen_templates_rejection(key, N_effectualness_points)
-    mask = effectualness_points
-    # effectualness_points = sampler(key, N_effectualness_points)
-    bank.compute_effectualnesses(effectualness_points)
-    import numpy as np
-
-    mask = np.logical_and(
-        effectualness_points[:, 0] < 5.5, effectualness_points[:, 0] > 4.5
-    ) & np.logical_and(
-        effectualness_points[:, 1] < 0.23, effectualness_points[:, 1] > 0.16
-    )
-    masked_effectualness = bank.effectualnesses[mask]
-    print(
-        "Fraction of templates above %.2f:" % mismatch,
-        sum(bank.effectualnesses[:, -1] > mismatch) / bank.effectualnesses[:, -1].size,
-    )
-    print(
-        "Fraction of templates above %.2f:" % mismatch,
-        sum(masked_effectualness[:, -1] > mismatch) / masked_effectualness[:, -1].size,
-    )
-    bank.save_bank()
-
-    # Plot
-    # plt.figure(figsize=(6, 5))
-    # plt.scatter(bank.templates[:, 0], bank.templates[:, 1], s=10, c="C1", marker="x")
-    # plt.scatter(
-    #     effectualness_points[:, 0], effectualness_points[:, 1], s=10, c="C0", marker="o"
-    # )
-    # plt.xlabel("M")
-    # plt.ylabel("eta")
-    # plt.savefig("figures/M_eta_highmass.pdf", bbox_inches="tight")
+    print("Computing effectualness")
+    key, subkey = random.split(key)
+    bank.compute_effectualnesses(subkey, 1000)
+    bank.save()
 
 
 def check_metric_ellipse():

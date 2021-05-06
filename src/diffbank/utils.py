@@ -241,6 +241,7 @@ def get_template_frac_in_bounds(
     Args:
       is_in_bounds: callable that takes a point and returns 1 if it is in the
         parameter space and 0 if not.
+      n: number of points to sample in each template ellipse.
 
     Returns:
       MC estimate (along with error) of the fraction of the volume of the

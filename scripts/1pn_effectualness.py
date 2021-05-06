@@ -1,5 +1,8 @@
 from math import pi
 
+import click
+import matplotlib.pyplot as plt
+
 from diffbank.bank import Bank
 from diffbank.constants import C, G, MSUN
 from diffbank.utils import ms_to_Mc_eta
@@ -7,7 +10,6 @@ from diffbank.utils import gen_templates_rejection
 from jax import random
 import jax
 import jax.numpy as jnp
-import matplotlib.pyplot as plt
 
 
 """
@@ -86,29 +88,16 @@ def propose(key, n):
     )
 
 
-@jax.jit
-def accept(pt):
+def accept(taus: jnp.ndarray) -> jnp.ndarray:
     """
-    Acceptance probability for tau rejection sampling.
+    Returns 1 if taus is in bounds, 0 otherwise.
     """
-    tau1, tau2 = pt
-    # I don't know of a better way to handle boolean operators in jax...
-    return jnp.where(
-        tau1 < tau1_range[0],
-        jnp.array(0.0),
-        jnp.where(
-            tau1 > tau1_range[1],
-            jnp.array(0.0),
-            jnp.where(
-                tau2 < tau2_interp_low(tau1),
-                jnp.array(0.0),
-                jnp.where(
-                    tau2 > tau2_interp_high(tau1),
-                    jnp.array(0.0),
-                    jnp.array(1.0),
-                ),
-            ),
-        ),
+    tau1, tau2 = taus[..., 0], taus[..., 1]
+    tau1_clipped = jnp.clip(tau1, tau1_range[0], tau1_range[1])
+    tau2_clipped = jnp.clip(tau2, tau2_interp_low(tau1), tau2_interp_high(tau1))
+    # Check if clipped and unclipped point are equal
+    return jnp.logical_and(tau1 == tau1_clipped, tau2 == tau2_clipped).astype(
+        jnp.float64
     )
 
 
@@ -120,6 +109,9 @@ def tau_sampler(key, n):
 
 
 def Sn_LIGO(f):
+    """
+    LIGO noise curve.
+    """
     return jnp.where(
         f > f_s, 1 / 5 * S_0 * ((f / f_0) ** (-4) + 2 * (1 + (f / f_0) ** 2)), jnp.inf
     )
@@ -130,6 +122,9 @@ def amp(f, _):
 
 
 def Psi(f, theta):
+    """
+    1PN phase.
+    """
     tau1, tau2 = theta
     return (
         6 / 5 * pi * f_0 * (f / f_0) ** (-5 / 3) * tau1
@@ -141,13 +136,15 @@ def get_bank(key):
     """
     Returns a filled bank.
     """
-    vol_key, n_templates_key, fill_key = random.split(key, 3)
-    # Estimate tau volume to within 10%
-    proposals = propose(vol_key, 10000)
+    naive_vol_key, frac_ib_key, n_templates_key, fill_key = random.split(key, 4)
+
+    # Estimate naive tau volume to within 10%
+    proposals = propose(naive_vol_key, 100000)
     proposal_vol = (tau1_range[1] - tau1_range[0]) * (tau2_range[1] - tau2_range[0])
-    naive_vol = accept(proposals.T).mean() * proposal_vol
-    naive_vol_err = accept(proposals.T).std() * proposal_vol / jnp.sqrt(len(proposals))
-    print(f"Bank volume: {naive_vol} +/- {naive_vol_err}")
+    in_bounds = accept(proposals)
+    naive_vol = in_bounds.mean() * proposal_vol
+    naive_vol_err = in_bounds.std() * proposal_vol / jnp.sqrt(len(proposals))
+    print(f"Bank volume: {naive_vol:.5f} +/- {naive_vol_err:.5f}")
     assert naive_vol_err / naive_vol < 0.1
 
     # Configure bank
@@ -155,20 +152,27 @@ def get_bank(key):
     mm = 0.95
     m_star = 1 - mm
     eta = 0.95
-    bank = Bank(amp, Psi, fs, Sn_LIGO, tau_sampler, naive_vol, m_star, eta, "owen")
+    bank = Bank(
+        amp, Psi, fs, Sn_LIGO, tau_sampler, naive_vol, m_star, eta, accept, "owen"
+    )
 
     # Metric is constant, so can just compute density at any point
-    bank.density_max = bank.get_density(tau_sampler(vol_key, 1)[0])
-
+    bank.density_max = bank.get_density(tau_sampler(naive_vol_key, 1)[0])
+    bank.compute_template_frac_in_bounds(frac_ib_key, 20000, 20)
+    print(
+        f"{bank.frac_in_bounds * 100:.2f} +/- {bank.frac_in_bounds_err * 100:.2f} % "
+        "of the average template ellipse's volume is in bounds"
+    )
     bank.compute_n_templates(n_templates_key, 50)
-    print(f"Filling bank with {bank.n_templates} templates")
+    print(f"{bank.n_templates} +/- {bank.n_templates_err} templates required")
+    print("Filling the bank")
     bank.fill_bank(fill_key)
     print(f"Done: {bank}")
 
     return bank
 
 
-def plot_bank(bank):
+def plot_bank(bank, seed):
     """
     Plot template positions and tau space boundaries.
     """
@@ -196,51 +200,68 @@ def plot_bank(bank):
         r"$m \in [%i, %i] \, \mathrm{M}_\odot$" % (m_range[0] / MSUN, m_range[1] / MSUN)
     )
 
-    plt.savefig("figures/owens-bank.pdf")
+    plt.savefig(f"figures/owens-bank_seed={seed}.pdf")
     plt.close()
 
 
-def plot_effectualnesses(key, bank, n=1000):
+def plot_effectualnesses(key, bank, seed, n=250):
     """
     Histogram effectualnesses for n signal injections sampled using parameter
     space metric density.
     """
     # Sample signal injections from template bank
-    points = bank.gen_templates_rejection(key, n)
-    bank.compute_effectualnesses(points)  # slow
+    bank.compute_effectualnesses(key, n)  # slow
 
-    eff_frac = jnp.mean(bank.effectualnesses > bank.minimum_match)
-    eff_frac_err = jnp.std(bank.effectualnesses > bank.minimum_match) / jnp.sqrt(
-        len(bank.effectualnesses)
-    )
+    plt.figure(figsize=(8, 3.5))
 
-    plt.figure()
-
-    plt.hist(bank.effectualnesses, bins=50)
+    plt.subplot(1, 2, 1)
+    plt.hist(bank.effectualnesses)  # , bins=50)
     plt.axvline(bank.minimum_match, color="r")
+    plt.xlabel("Effectualness")
+    plt.ylabel("Frequency")
 
-    plt.title(
-        r"$^{%.2f}\mathcal{R}_{%i}(%.2f)$, effectualness $\in [%.3f, %.3f]$"
+    plt.subplot(1, 2, 2)
+    idxs = jnp.argsort(bank.effectualnesses)[::-1]
+    plt.scatter(
+        *bank.effectualness_points[idxs].T,
+        c=bank.effectualnesses[idxs],
+        s=5,
+        linewidth=0,
+        vmin=0.9,
+        vmax=1.0,
+        cmap="bwr",
+    )
+    plt.colorbar(label="Effectualness")
+    plt.xlabel(r"$\tau_1$ [s]")
+    plt.ylabel(r"$\tau_2$ [s]")
+
+    plt.suptitle(
+        r"$^{%.2f}\mathcal{R}_{%i}(%.2f)$, $\hat{\eta} \in [%.3f, %.3f]$"
         % (
             bank.eta,
             bank.dim,
             bank.m_star,
-            eff_frac - 3 * eff_frac_err,
-            eff_frac + 3 * eff_frac_err,
+            bank.eta_est - 1 * bank.eta_est_err,
+            bank.eta_est + 1 * bank.eta_est_err,
         )
     )
-    plt.xlabel("Effectualness")
-    plt.ylabel("Frequency")
+    plt.tight_layout()
 
-    plt.savefig("figures/owens-effectualnesses.pdf")
+    plt.savefig(f"figures/owens-effs_seed={seed}.pdf")
     plt.close()
 
 
+@click.command()
+@click.option("--seed", type=int, help="PRNG seed")
+def main(seed):
+    key = random.PRNGKey(seed)
+    bank_key, eff_key = random.split(key)
+
+    bank = get_bank(bank_key)
+
+    plot_bank(bank, seed)
+    plot_effectualnesses(eff_key, bank, seed)
+
+
 if __name__ == "__main__":
-    key = random.PRNGKey(528)
-
-    bank = get_bank(key)
-    _, key = random.split(key)
-
-    plot_bank(bank)
-    plot_effectualnesses(key, bank)
+    main()
