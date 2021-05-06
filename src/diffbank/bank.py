@@ -1,5 +1,5 @@
 import os
-from typing import Callable, Set, Optional, Union
+from typing import Callable, Optional, Set, Union
 import warnings
 
 import numpy as np
@@ -167,9 +167,11 @@ class Bank:
                 "templates will be underestimated",
                 RuntimeWarning,
             )
-            vol_correction = 1.0
+            frac_in_bounds = 1.0
+            frac_in_bounds_err = 0.0
         else:
-            vol_correction = self.frac_in_bounds ** (2 / self.dim)
+            frac_in_bounds = self.frac_in_bounds
+            frac_in_bounds_err = self.frac_in_bounds_err
 
         self.n_templates, self.n_templates_err = get_n_templates(
             key,
@@ -178,7 +180,9 @@ class Bank:
             self.get_density,
             self.sampler,
             self.eta,
-            self.m_star * vol_correction,
+            self.m_star,
+            frac_in_bounds,
+            frac_in_bounds_err,
         )
 
     def gen_templates_rejection(self, key: jnp.ndarray, n_templates) -> jnp.ndarray:

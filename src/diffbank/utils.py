@@ -1,5 +1,5 @@
 from math import pi
-from typing import Callable, Tuple
+from typing import Callable, Optional, Tuple
 
 import jax
 from jax import random
@@ -122,6 +122,8 @@ def get_n_templates(
     sampler: Callable[[jnp.ndarray, int], jnp.ndarray],
     eta,
     m_star,
+    frac_in_bounds: jnp.ndarray = jnp.array(1.0),
+    frac_in_bounds_err: jnp.ndarray = jnp.array(0.0),
 ) -> Tuple[jnp.ndarray, jnp.ndarray]:
     """
     Estimates number of templates required to cover a parameter space with a
@@ -141,16 +143,31 @@ def get_n_templates(
     """
     dim = sampler(key, 1).shape[-1]  # fine to reuse key here!
 
-    # Volume of a single template
-    vol_sphere = get_sphere_vol(dim)
+    # Uncorrected template ellipsoid volume
+    vol_template = m_star ** (dim / 2) * get_sphere_vol(dim)
 
     # MC samples of number of templates
     thetas = sampler(key, n_samples)
-    densities = jax.lax.map(density_fun, thetas)
-    space_vols = densities * naive_vol
-    ns = jnp.log(1 - eta) / jnp.log(1 - m_star ** (dim / 2) * vol_sphere / space_vols)
+    space_vols = naive_vol * jax.lax.map(density_fun, thetas)
+    vol_ratios = vol_template / space_vols
+    ns = jnp.log(1 - eta) / jnp.log(1 - frac_in_bounds * vol_ratios)
+    n_mean = jnp.mean(ns).astype(int)
+    n_err_vol = jnp.std(ns) / jnp.sqrt(n_samples)
 
-    return jnp.mean(ns).astype(int), jnp.std(ns) / jnp.sqrt(n_samples)
+    # Propagate the error on the fraction of the average template's volume that
+    # lies in bounds
+    vol_ratio_mean = jnp.mean(vol_ratios)
+    n_err_ib = (
+        frac_in_bounds_err
+        * vol_ratio_mean
+        * jnp.log(1 - eta)
+        / (
+            (1 - frac_in_bounds * vol_ratio_mean)
+            * jnp.log(1 - frac_in_bounds * vol_ratio_mean) ** 2
+        )
+    )
+
+    return n_mean, jnp.sqrt(n_err_vol ** 2 + n_err_ib ** 2)
 
 
 def _gen_template_rejection(

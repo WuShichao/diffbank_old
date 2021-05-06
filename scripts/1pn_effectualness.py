@@ -139,12 +139,12 @@ def get_bank(key):
     naive_vol_key, frac_ib_key, n_templates_key, fill_key = random.split(key, 4)
 
     # Estimate naive tau volume to within 10%
-    proposals = propose(naive_vol_key, 100000)
+    proposals = propose(naive_vol_key, 1000000)
     proposal_vol = (tau1_range[1] - tau1_range[0]) * (tau2_range[1] - tau2_range[0])
     in_bounds = accept(proposals)
     naive_vol = in_bounds.mean() * proposal_vol
     naive_vol_err = in_bounds.std() * proposal_vol / jnp.sqrt(len(proposals))
-    print(f"Bank volume: {naive_vol:.5f} +/- {naive_vol_err:.5f}")
+    print(f"Naive parameter space volume: {naive_vol:.5f} +/- {naive_vol_err:.5f}")
     assert naive_vol_err / naive_vol < 0.1
 
     # Configure bank
