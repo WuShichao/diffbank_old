@@ -1,10 +1,11 @@
 from math import pi
-from typing import Callable, Optional, Tuple
+from typing import Callable, Tuple
 
 import jax
 from jax import random
 import jax.numpy as jnp
 from jax.scipy.special import gammaln
+import numpy as np
 
 from .constants import C, G
 
@@ -107,124 +108,6 @@ def get_effectualness(theta1, theta2, amp, Psi, f, Sn):
     return jnp.abs(overlap_tc).max()
 
 
-def get_sphere_vol(n) -> jnp.ndarray:
-    """
-    Volume of n-sphere.
-    """
-    return pi ** (n / 2) / jnp.exp(gammaln((n / 2) + 1))
-
-
-def get_n_templates(
-    key,
-    naive_vol,
-    n_samples,
-    density_fun: Callable[[jnp.ndarray], jnp.ndarray],
-    sampler: Callable[[jnp.ndarray, int], jnp.ndarray],
-    eta,
-    m_star,
-    frac_in_bounds: jnp.ndarray = jnp.array(1.0),
-    frac_in_bounds_err: jnp.ndarray = jnp.array(0.0),
-) -> Tuple[jnp.ndarray, jnp.ndarray]:
-    """
-    Estimates number of templates required to cover a parameter space with a
-    random bank.
-
-    Args:
-      naive_vol: parameter space volume ignoring the metric. For example, a
-        waveform parametrized by (x, y) with 0 < x < x_max and 0 < y < x would
-        have naive_vol = 1/2 * x_max**2 regardless of the metric.
-
-    Returns:
-      MC estimate (and error) for required number of templates.
-
-
-    Reference:
-      Eq. 14 in https://arxiv.org/abs/0809.5223
-    """
-    dim = sampler(key, 1).shape[-1]  # fine to reuse key here!
-
-    # Uncorrected template ellipsoid volume
-    vol_template = m_star ** (dim / 2) * get_sphere_vol(dim)
-
-    # Parameter space volume
-    thetas = sampler(key, n_samples)
-    vol_spaces = naive_vol * jax.lax.map(density_fun, thetas)
-    vol_space = jnp.mean(vol_spaces)
-
-    # MC samples of number of templates
-    n = jnp.log(1 - eta) / jnp.log(1 - frac_in_bounds * vol_template / vol_space)
-
-    # Propagate error from parameter space volume
-    vol_space_err = jnp.std(vol_spaces) / jnp.sqrt(n_samples)
-    n_err_vol = (
-        vol_space_err
-        * frac_in_bounds
-        * vol_template
-        * jnp.log(1 - eta)
-        / (
-            vol_space
-            * (frac_in_bounds * vol_template - vol_space)
-            * jnp.log(1 - frac_in_bounds * vol_template / vol_space) ** 2
-        )
-    )
-
-    # Propagate error from fraction of template volume in bounds
-    n_err_fib = (
-        vol_template
-        * jnp.log(1 - eta)
-        / (
-            (vol_space - frac_in_bounds * vol_template)
-            * jnp.log(1 - frac_in_bounds * vol_template / vol_space)
-        )
-    )
-
-    return n, jnp.sqrt(n_err_vol ** 2 + n_err_fib ** 2)
-
-
-def _gen_template_rejection(
-    key,
-    density_max,
-    density_fun: Callable[[jnp.ndarray], jnp.ndarray],
-    sampler: Callable[[jnp.ndarray, int], jnp.ndarray],
-) -> jnp.ndarray:
-    """
-    Generates a single template using rejection sampling.
-    """
-
-    def cond_fun(val):
-        theta, u_key = val[0], val[3]
-        u = random.uniform(u_key)
-        return u >= density_fun(theta) / density_max
-
-    def body_fun(val):
-        key = val[1]
-        key, theta_key, u_key = random.split(key, 3)
-        theta = sampler(theta_key, 1)[0]
-        return (theta, key, theta_key, u_key)  # new val
-
-    # Only second element of init_val matters
-    init_val = body_fun((None, key, None, None))
-
-    return jax.lax.while_loop(cond_fun, body_fun, init_val)[0]
-
-
-def gen_templates_rejection(
-    key,
-    density_max,
-    n_templates,
-    density_fun: Callable[[jnp.ndarray], jnp.ndarray],
-    sampler,
-) -> jnp.ndarray:
-    """
-    Generates a bank with n_templates samples using rejection sampling.
-
-    TODO: add tqdm somehow?
-    """
-    keys = random.split(key, n_templates)
-    f = lambda key: _gen_template_rejection(key, density_max, density_fun, sampler)
-    return jax.lax.map(f, keys)
-
-
 def sample_uniform_ball(key, dim, shape: Tuple[int] = (1,)) -> jnp.ndarray:
     """
     Uniformly sample from the unit ball.
@@ -293,3 +176,133 @@ def get_template_frac_in_bounds(
     )
     in_bounds = jax.lax.map(is_in_bounds, ellipse_samples)
     return in_bounds.mean(), in_bounds.std() / jnp.sqrt(len(thetas) * n)
+
+
+def get_sphere_vol(n) -> jnp.ndarray:
+    """
+    Volume of n-sphere.
+    """
+    return pi ** (n / 2) / jnp.exp(gammaln((n / 2) + 1))
+
+
+def get_n_templates(
+    key,
+    n_samples,
+    density_fun: Callable[[jnp.ndarray], jnp.ndarray],
+    sampler: Callable[[jnp.ndarray, int], jnp.ndarray],
+    eta,
+    m_star,
+    naive_vol,
+    frac_in_bounds: jnp.ndarray = jnp.array(1.0),
+    naive_vol_err: jnp.ndarray = jnp.array(0.0),
+    frac_in_bounds_err: jnp.ndarray = jnp.array(0.0),
+) -> Tuple[jnp.ndarray, jnp.ndarray]:
+    """
+    Estimates number of templates required to cover a parameter space with a
+    random bank.
+
+    Args:
+      naive_vol: parameter space volume ignoring the metric. For example, a
+        waveform parametrized by (x, y) with 0 < x < x_max and 0 < y < x would
+        have naive_vol = 1/2 * x_max**2 regardless of the metric.
+
+    Returns:
+      MC estimate (and error) for required number of templates.
+
+
+    Reference:
+      Eq. 14 in https://arxiv.org/abs/0809.5223
+    """
+    dim = sampler(key, 1).shape[-1]  # fine to reuse key here!
+
+    # Uncorrected template ellipsoid volume
+    vol_template = m_star ** (dim / 2) * get_sphere_vol(dim)
+
+    # Parameter space volume
+    thetas = sampler(key, n_samples)
+    densities = jax.lax.map(density_fun, thetas)
+    density = jnp.mean(densities)
+    vol_spaces = naive_vol * density
+    vol_space = jnp.mean(vol_spaces)
+
+    # MC samples of number of templates
+    n = (
+        jnp.log(1 - eta) / jnp.log(1 - frac_in_bounds * vol_template / vol_space)
+    ).astype(jnp.int64)
+
+    # Propagate error from parameter space volume
+    density_err = jnp.std(densities) / jnp.sqrt(n_samples)
+    vol_space_err = jnp.sqrt(
+        (naive_vol * density_err) ** 2 + (naive_vol_err * density) ** 2
+    )
+    dn_dvol_space = (
+        frac_in_bounds
+        * vol_template
+        * jnp.log(1 - eta)
+        / (
+            vol_space
+            * (frac_in_bounds * vol_template - vol_space)
+            * jnp.log(1 - frac_in_bounds * vol_template / vol_space) ** 2
+        )
+    )
+
+    # Propagate error from fraction of template volume in bounds
+    dn_dfib = (
+        vol_template
+        * jnp.log(1 - eta)
+        / (
+            (vol_space - frac_in_bounds * vol_template)
+            * jnp.log(1 - frac_in_bounds * vol_template / vol_space) ** 2
+        )
+    )
+
+    # Total error
+    n_err = jnp.sqrt(
+        (dn_dvol_space * vol_space_err) ** 2 + (dn_dfib * frac_in_bounds_err) ** 2
+    )
+
+    return n, n_err
+
+
+def _gen_template_rejection(
+    key,
+    density_max,
+    density_fun: Callable[[jnp.ndarray], jnp.ndarray],
+    sampler: Callable[[jnp.ndarray, int], jnp.ndarray],
+) -> jnp.ndarray:
+    """
+    Generates a single template using rejection sampling.
+    """
+
+    def cond_fun(val):
+        theta, u_key = val[0], val[3]
+        u = random.uniform(u_key)
+        return u >= density_fun(theta) / density_max
+
+    def body_fun(val):
+        key = val[1]
+        key, theta_key, u_key = random.split(key, 3)
+        theta = sampler(theta_key, 1)[0]
+        return (theta, key, theta_key, u_key)  # new val
+
+    # Only second element of init_val matters
+    init_val = body_fun((None, key, None, None))
+
+    return jax.lax.while_loop(cond_fun, body_fun, init_val)[0]
+
+
+def gen_templates_rejection(
+    key,
+    density_max,
+    n_templates,
+    density_fun: Callable[[jnp.ndarray], jnp.ndarray],
+    sampler,
+) -> jnp.ndarray:
+    """
+    Generates a bank with n_templates samples using rejection sampling.
+
+    TODO: add tqdm somehow?
+    """
+    keys = random.split(key, n_templates)
+    f = lambda key: _gen_template_rejection(key, density_max, density_fun, sampler)
+    return jax.lax.map(f, keys)

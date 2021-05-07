@@ -139,12 +139,12 @@ def get_bank(key):
     naive_vol_key, frac_ib_key, n_templates_key, fill_key = random.split(key, 4)
 
     # Estimate naive tau volume to within 10%
-    proposals = propose(naive_vol_key, 1000000)
+    proposals = propose(naive_vol_key, 100000)
     proposal_vol = (tau1_range[1] - tau1_range[0]) * (tau2_range[1] - tau2_range[0])
     in_bounds = accept(proposals)
     naive_vol = in_bounds.mean() * proposal_vol
     naive_vol_err = in_bounds.std() * proposal_vol / jnp.sqrt(len(proposals))
-    print(f"Naive parameter space volume: {naive_vol:.5f} +/- {naive_vol_err:.5f}")
+    print(f"Naive parameter space volume: {naive_vol:.6f} +/- {naive_vol_err:.6f}")
     assert naive_vol_err / naive_vol < 0.1
 
     # Configure bank
@@ -158,13 +158,13 @@ def get_bank(key):
 
     # Metric is constant, so can just compute density at any point
     bank.density_max = bank.get_density(tau_sampler(naive_vol_key, 1)[0])
-    bank.compute_template_frac_in_bounds(frac_ib_key, 20000, 20)
+    bank.compute_template_frac_in_bounds(frac_ib_key, 100000, 20)
     print(
-        f"{bank.frac_in_bounds * 100:.2f} +/- {bank.frac_in_bounds_err * 100:.2f} % "
+        f"{bank.frac_in_bounds * 100:.3f} +/- {bank.frac_in_bounds_err * 100:.3f} % "
         "of the average template ellipse's volume is in bounds"
     )
-    bank.compute_n_templates(n_templates_key, 50)
-    print(f"{bank.n_templates} +/- {bank.n_templates_err} templates required")
+    bank.compute_n_templates(n_templates_key, 5)
+    print(f"{bank.n_templates} +/- {bank.n_templates_err:.2f} templates required")
     print("Filling the bank")
     bank.fill_bank(fill_key)
     print(f"Done: {bank}")

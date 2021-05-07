@@ -2,10 +2,9 @@ import os
 from typing import Callable, Optional, Set, Union
 import warnings
 
-import numpy as np
-
 import jax
 import jax.numpy as jnp
+import numpy as np
 from tqdm.auto import trange
 
 from .metric import get_density, get_g, get_gam
@@ -41,6 +40,7 @@ class Bank:
         [
             "fs",
             "naive_vol",
+            "naive_vol_err",
             "m_star",
             "eta",
             "name",
@@ -59,6 +59,7 @@ class Bank:
         eta: Union[float, jnp.ndarray],
         is_in_bounds: Callable[[jnp.ndarray], jnp.ndarray],
         name: str = "test",
+        naive_vol_err: jnp.ndarray = jnp.array(0.0),
     ):
         self.amp = amp
         self.Psi = Psi
@@ -70,17 +71,18 @@ class Bank:
         self.eta = eta
         self.is_in_bounds = is_in_bounds
         self.name = name
+        self.naive_vol_err = naive_vol_err
 
-        self.density_max: jnp.ndarray = None
-        self.frac_in_bounds: jnp.ndarray = None
-        self.frac_in_bounds_err: jnp.ndarray = None
-        self.n_templates: jnp.ndarray = None
-        self.n_templates_err: jnp.ndarray = None
-        self.templates: jnp.ndarray = None
-        self.effectualness_points: jnp.ndarray = None
-        self.effectualnesses: jnp.ndarray = None
-        self._eta_est: jnp.ndarray = None
-        self._eta_est_err: jnp.ndarray = None
+        self.density_max: Optional[jnp.ndarray] = None
+        self.frac_in_bounds: Optional[jnp.ndarray] = None
+        self.frac_in_bounds_err: Optional[jnp.ndarray] = None
+        self.n_templates: Optional[jnp.ndarray] = None
+        self.n_templates_err: Optional[jnp.ndarray] = None
+        self.templates: Optional[jnp.ndarray] = None
+        self.effectualness_points: Optional[jnp.ndarray] = None
+        self.effectualnesses: Optional[jnp.ndarray] = None
+        self._eta_est: Optional[jnp.ndarray] = None
+        self._eta_est_err: Optional[jnp.ndarray] = None
 
         # Key doesn't matter
         self._dim = self.sampler(jax.random.PRNGKey(1), 1).shape[-1]
@@ -124,7 +126,7 @@ class Bank:
         self._eta = eta
 
     @property
-    def dim(self) -> jnp.ndarray:
+    def dim(self) -> int:
         return self._dim
 
     def get_density(self, theta) -> jnp.ndarray:
@@ -161,27 +163,28 @@ class Bank:
         """
         Sets the number of templates for the bank.
         """
-        if self.frac_in_bounds is None:
+        if self.frac_in_bounds is not None and self.frac_in_bounds_err is not None:
+            frac_in_bounds = self.frac_in_bounds
+            frac_in_bounds_err = self.frac_in_bounds_err
+        else:
             warnings.warn(
                 "'frac_in_bounds' has not been computed, so number of "
                 "templates will be underestimated",
                 RuntimeWarning,
             )
-            frac_in_bounds = 1.0
-            frac_in_bounds_err = 0.0
-        else:
-            frac_in_bounds = self.frac_in_bounds
-            frac_in_bounds_err = self.frac_in_bounds_err
+            frac_in_bounds = jnp.array(1.0)
+            frac_in_bounds_err = jnp.array(0.0)
 
         self.n_templates, self.n_templates_err = get_n_templates(
             key,
-            self.naive_vol,
             n_samples,
             self.get_density,
             self.sampler,
             self.eta,
             self.m_star,
+            self.naive_vol,
             frac_in_bounds,
+            self.naive_vol_err,
             frac_in_bounds_err,
         )
 

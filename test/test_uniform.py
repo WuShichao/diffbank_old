@@ -1,15 +1,15 @@
 from math import sqrt
 
 import click
-from matplotlib.collections import PatchCollection
-import matplotlib.pyplot as plt
-import numpy as np
-
-from diffbank.utils import get_n_templates, get_template_frac_in_bounds
 import jax
 from jax import random
 import jax.numpy as jnp
+from matplotlib.collections import PatchCollection
+import matplotlib.pyplot as plt
+import numpy as np
 from tqdm.auto import trange
+
+from diffbank.utils import get_n_templates, get_template_frac_in_bounds
 
 """
 Tests consistency of random template bank using a simple waveform model with
@@ -86,7 +86,15 @@ def run(key, m_max, eta, mm, plot):
     # Generate bank
     key, subkey = random.split(key)
     n_templates, n_templates_err = get_n_templates(
-        subkey, naive_vol, 1000, density_fun, sampler, eta, m_star * frac_in_bounds
+        subkey,
+        1000,
+        density_fun,
+        sampler,
+        eta,
+        m_star,
+        naive_vol,
+        frac_in_bounds,
+        frac_in_bounds_err=frac_in_bounds_err,
     )
     assert n_templates_err / n_templates < 0.1
     print(f"{n_templates} +/- {n_templates_err} templates required")
