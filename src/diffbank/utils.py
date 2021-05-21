@@ -5,7 +5,6 @@ import jax
 from jax import random
 import jax.numpy as jnp
 from jax.scipy.special import gammaln
-import numpy as np
 
 from .constants import C, G
 
@@ -17,18 +16,6 @@ def ms_to_Mc_eta(m):
 
 def get_f_isco(m):
     return 1 / (6 ** (3 / 2) * pi * m / (C ** 3 / G))
-
-
-# def update_fields(nt: NamedTuple, **updates):
-#     """
-#     Returns a new named tuple with the specified fields updated.
-#     """
-#     d = nt._asdict()
-#     for k in updates:
-#         d.pop(k)
-#     return type(nt)(**updates, **d)
-#
-#
 
 
 def get_M_eta_sampler(M_range, eta_range) -> Callable[[jnp.ndarray, int], jnp.ndarray]:

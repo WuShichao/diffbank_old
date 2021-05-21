@@ -8,7 +8,6 @@ from diffbank.constants import C, G, MSUN
 from diffbank.utils import ms_to_Mc_eta
 from diffbank.utils import gen_templates_rejection
 from jax import random
-import jax
 import jax.numpy as jnp
 
 
@@ -94,7 +93,9 @@ def accept(taus: jnp.ndarray) -> jnp.ndarray:
     """
     tau1, tau2 = taus[..., 0], taus[..., 1]
     tau1_clipped = jnp.clip(tau1, tau1_range[0], tau1_range[1])
-    tau2_clipped = jnp.clip(tau2, tau2_interp_low(tau1), tau2_interp_high(tau1))
+    tau2_clipped = jnp.clip(
+        tau2, tau2_interp_low(tau1_clipped), tau2_interp_high(tau1_clipped)
+    )
     # Check if clipped and unclipped point are equal
     return jnp.logical_and(tau1 == tau1_clipped, tau2 == tau2_clipped).astype(
         jnp.float64
@@ -153,7 +154,17 @@ def get_bank(key):
     m_star = 1 - mm
     eta = 0.95
     bank = Bank(
-        amp, Psi, fs, Sn_LIGO, tau_sampler, naive_vol, m_star, eta, accept, "owen"
+        amp,
+        Psi,
+        fs,
+        Sn_LIGO,
+        tau_sampler,
+        naive_vol,
+        m_star,
+        eta,
+        accept,
+        "owen",
+        naive_vol_err,
     )
 
     # Metric is constant, so can just compute density at any point
