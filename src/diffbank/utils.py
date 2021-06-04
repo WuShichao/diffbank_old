@@ -151,14 +151,14 @@ def get_template_frac_in_bounds(
         Rescale metric ellipse samples to have radius ``sqrt(m_star)`` and
         recenter on ``theta``.
         """
-        key = x[0].astype(jnp.uint32)
-        theta = x[1]
+        key = x["key"].astype(jnp.uint32)
+        theta = x["theta"]
         ellipse_samples_0 = sample_uniform_metric_ellipse(key, get_g(theta), n)
         return jnp.sqrt(m_star) * ellipse_samples_0 + theta
 
     keys = random.split(key, len(thetas))
     dim = thetas.shape[1]
-    ellipse_samples = jax.lax.map(helper, jnp.stack([keys, thetas], axis=1)).reshape(
+    ellipse_samples = jax.lax.map(helper, {"key": keys, "theta": thetas}).reshape(
         [-1, dim]
     )
     in_bounds = jax.lax.map(is_in_bounds, ellipse_samples)
