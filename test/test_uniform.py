@@ -40,13 +40,7 @@ def get_eff(x, y):
     return 1 - jnp.sum((x - y) ** 2)
 
 
-@click.command()
-@click.option("--key", default=8539, help="PRNG key")
-@click.option("--m_max", default=1.5, help="maximum parameter value")
-@click.option("--eta", default=0.99)
-@click.option("--mm", default=0.9, help="minimum match")
-@click.option("--plot/--no-plot", default=False, help="save plot")
-def run(key, m_max, eta, mm, plot):
+def _run(key, m_max, eta, mm, plot):
     key = random.PRNGKey(key)
     m_min, m_max = jnp.array(0.0), jnp.array(m_max)
     naive_vol = (m_max - m_min) ** 2
@@ -156,7 +150,17 @@ def run(key, m_max, eta, mm, plot):
 
 
 def test():
-    run(45389, 2.0, 0.99, 0.95, False)
+    _run(45389, 2.0, 0.99, 0.95, False)
+
+
+@click.command()
+@click.option("--key", default=8539, help="PRNG key")
+@click.option("--m_max", default=1.5, help="maximum parameter value")
+@click.option("--eta", default=0.99)
+@click.option("--mm", default=0.9, help="minimum match")
+@click.option("--plot/--no-plot", default=False, help="save plot")
+def run(key, m_max, eta, mm, plot):
+    _run(key, m_max, eta, mm, plot)
 
 
 if __name__ == "__main__":
