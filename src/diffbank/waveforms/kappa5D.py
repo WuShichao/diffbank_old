@@ -1,5 +1,6 @@
 from math import pi
-import numpy as np
+
+# import numpy as np
 import jax.numpy as jnp
 
 
@@ -7,12 +8,14 @@ import jax.numpy as jnp
 hs 5d waveform metric parametrized by the black hole masses (m1, m2).
 """
 
-def Psi(f: jnp.ndarray, theta: jnp.ndarray) -> jnp.ndarray:
-    
-    mass1,mass2,chiz,kappa2PN_eff,kappa3PN_eff = theta
 
-    Mt = mass1 + mass2
-    eta = mass1 * mass2 / (mass1 + mass2) ** 2
+def Psi(f: jnp.ndarray, theta: jnp.ndarray) -> jnp.ndarray:
+
+    # mass1, mass2, chiz, kappa2PN_eff, kappa3PN_eff = theta
+    Mt, eta, chiz, kappa2PN_eff, kappa3PN_eff = theta
+
+    # Mt = mass1 + mass2
+    # eta = mass1 * mass2 / (mass1 + mass2) ** 2
 
     gt = 4.92549094830932e-6  # GN*Msun/c^3 in seconds
     EulerGamma = 0.57721566490153286060
@@ -23,7 +26,7 @@ def Psi(f: jnp.ndarray, theta: jnp.ndarray) -> jnp.ndarray:
     chi = jnp.array([0.0, 0.0, chiz])
     delta = jnp.sqrt(1.0 - 4.0 * eta)
 
-    v = (jnp.pi * Mt * (f + 1e-100) * gt) ** (1.0 / 3.0)
+    v = (pi * Mt * (f + 1e-100) * gt) ** (1.0 / 3.0)
     v2 = v * v
     v3 = v2 * v
     v4 = v2 * v2
@@ -36,12 +39,7 @@ def Psi(f: jnp.ndarray, theta: jnp.ndarray) -> jnp.ndarray:
     eta3 = eta ** 3.0
 
     # rho parameters for 3PN terms
-    rho0 = (
-        113.0
-        * jnp.pi
-        / (113.0 - 76.0 * eta)
-        * (2270.0 / 3.0 - 520.0 * eta)
-    )
+    rho0 = 113.0 * pi / (113.0 - 76.0 * eta) * (2270.0 / 3.0 - 520.0 * eta)
     rho1 = (
         (113.0 / (113.0 - 76.0 * eta)) ** 2.0
         / (8475.0 + 1444.0 * eta)
@@ -52,51 +50,44 @@ def Psi(f: jnp.ndarray, theta: jnp.ndarray) -> jnp.ndarray:
             - 1545080.0 * eta3 / 9.0
         )
     )
-    rho2 = 3760.0 * jnp.pi * delta * eta / (339.0 - 228.0 * eta)
-    rho3 = (
-        113.0
-        * delta
-        * eta
-        * (12198367.0 - 16731218.0 * eta)
-        / (84.0 * (113.0 - 76.0 * eta) ** 2.0)
-    )
-    rho4 = (
-        eta2
-        * (109852619.0 - 341495546.0 * eta - 89556880.0 * eta2)
-        / (21.0 * (113.0 - 76.0 * eta) ** 2.0)
-    )
+    # rho2 = 3760.0 * jnp.pi * delta * eta / (339.0 - 228.0 * eta)
+    # rho3 = (
+    #     113.0
+    #     * delta
+    #     * eta
+    #     * (12198367.0 - 16731218.0 * eta)
+    #     / (84.0 * (113.0 - 76.0 * eta) ** 2.0)
+    # )
+    # rho4 = (
+    #     eta2
+    #     * (109852619.0 - 341495546.0 * eta - 89556880.0 * eta2)
+    #     / (21.0 * (113.0 - 76.0 * eta) ** 2.0)
+    # )
 
     # # ------------------------- Non spinning part of the waveform
     psi_NS_0PN = 1.0
     psi_NS_1PN = (3715.0 / 756.0 + 55.0 * eta / 9.0) * v2
-    psi_NS_15PN = -16.0 * jnp.pi * v3
+    psi_NS_15PN = -16.0 * pi * v3
     psi_NS_2PN = (
         15293365.0 / 508032.0 + 27145.0 * eta / 504.0 + 3085.0 * eta2 / 72.0
     ) * v4
     psi_NS_25PN = (
-        jnp.pi
-        * (38645.0 / 756.0 - 65.0 * eta / 9.0)
-        * (1 + 3.0 * jnp.log(v / vlso))
-        * v5
+        pi * (38645.0 / 756.0 - 65.0 * eta / 9.0) * (1 + 3.0 * jnp.log(v / vlso)) * v5
     )
     psi_NS_3PN = (
         (
             11583231236531.0 / 4694215680.0
-            - 640.0 * jnp.pi ** 2 / 3.0
+            - 640.0 * pi ** 2 / 3.0
             - 6848.0 * EulerGamma / 21.0
         )
-        + (2255.0 * jnp.pi ** 2 / 12.0 - 15737765635.0 / 3048192.0) * eta
+        + (2255.0 * pi ** 2 / 12.0 - 15737765635.0 / 3048192.0) * eta
         + 76055.0 * eta2 / 1728.0
         - 127825.0 * eta3 / 1296.0
         - 6848.0 * jnp.log(4.0 * v) / 21.0
     ) * v6
     psi_NS_35PN = (
-        jnp.pi
-        * (
-            77096675.0 / 254016.0
-            + 378515.0 * eta / 1512.0
-            - 74045.0 * eta2 / 756.0
-        )
+        pi
+        * (77096675.0 / 254016.0 + 378515.0 * eta / 1512.0 - 74045.0 * eta2 / 756.0)
         * v7
     )
 
@@ -148,17 +139,12 @@ def Psi(f: jnp.ndarray, theta: jnp.ndarray) -> jnp.ndarray:
         )
         * (chi.dot(L))
     )  # OK
-    S35cubeff_kappa = A35 * kappa2PN_eff * (
+    S35cubeff_kappa = A35 * kappa2PN_eff * (chi.dot(L)) + B35 * eta * kappa3PN_eff * (
         chi.dot(L)
-    ) + B35 * eta * kappa3PN_eff * (chi.dot(L))
+    )
     S35cubeff = (
         1442897.0
-        * (
-            -223835711.0
-            + 572749036.0 * eta
-            - 1266382384.0 * eta2
-            + 93340160.0 * eta3
-        )
+        * (-223835711.0 + 572749036.0 * eta - 1266382384.0 * eta2 + 93340160.0 * eta3)
         * (chi.dot(L)) ** 3.0
         / (24.0 * (-113.0 + 76.0 * eta) ** 3.0 * (8475.0 + 1444.0 * eta))
     )
@@ -185,22 +171,19 @@ def Psi(f: jnp.ndarray, theta: jnp.ndarray) -> jnp.ndarray:
         + psi_NS_35PN
     )
     psi_S = (
-        psi_S_15PN
-        + psi_S_2PN
-        + psi_S_25PN
-        + psi_S_25PN_log
-        + psi_S_3PN
-        + psi_S_35PN
+        psi_S_15PN + psi_S_2PN + psi_S_25PN + psi_S_25PN_log + psi_S_3PN + psi_S_35PN
     )
 
     return 3.0 / 128.0 / eta / v5 * (psi_NS + psi_S)
 
+
 def amp(f: jnp.ndarray, theta: jnp.ndarray) -> jnp.ndarray:
 
-    mass1,mass2,_,_,_ = theta
-    distance=1.0
-    Mt = mass1 + mass2
-    eta = mass1 * mass2 / (mass1 + mass2) ** 2
+    # mass1, mass2, _, _, _ = theta
+    Mt, eta, _, _, _ = theta
+    distance = 1.0
+    # Mt = mass1 + mass2
+    # eta = mass1 * mass2 / (mass1 + mass2) ** 2
 
     pre = 3.6686934875530996e-19  # (GN*Msun/c^3)^(5/6)/Hz^(7/6)*c/Mpc/sec
     Mchirp = Mt * eta ** 0.6
@@ -208,9 +191,8 @@ def amp(f: jnp.ndarray, theta: jnp.ndarray) -> jnp.ndarray:
         Mchirp ** (5.0 / 6.0)
         / (f + 1e-100) ** (7.0 / 6.0)
         / distance
-        / jnp.pi ** (2.0 / 3.0)
+        / pi ** (2.0 / 3.0)
         * jnp.sqrt(5.0 / 24.0)
     )
 
     return pre * A0
-
