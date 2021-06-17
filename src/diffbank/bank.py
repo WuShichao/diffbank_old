@@ -193,7 +193,10 @@ class Bank:
         Generates templates using rejection sampling.
         """
         if self.density_max is None:
-            raise ValueError("Must set bank's 'density_max' attribute")
+            raise ValueError(
+                "Must set bank's 'density_max' attribute to an estimate of the"
+                " maximum value of sqrt(|g|)"
+            )
 
         return gen_templates_rejection(
             key, self.density_max, n_templates, self.get_density, self.sampler
