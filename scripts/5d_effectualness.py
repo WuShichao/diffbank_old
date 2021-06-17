@@ -3,6 +3,15 @@ from math import pi
 import click
 import matplotlib.pyplot as plt
 
+# import os, sys
+# sys.path.append(os.path.dirname(os.path.dirname(os.path.realpath(__file__))))
+# from .BSM_GW_searches.Code import template_bank_generator
+
+import sys
+sys.path.append('/home/rngeorge/christiangithub/BSM_GW_searches/Code')
+import template_bank_generator as TBG
+
+
 from diffbank.bank import Bank
 from diffbank.constants import C, G, MSUN
 from diffbank.utils import ms_to_Mc_eta
@@ -12,6 +21,9 @@ import jax
 import jax.numpy as jnp
 from diffbank.waveforms import HS5d
 from diffbank.metric import get_g
+from shapely.geometry import Polygon, Point
+# One cut
+p = Polygon([(0, 0), (0, 2), (1, 1), (2, 2), (2, 0), (1, 1), (0, 0)])
 
 """
 Tests consistency of random template bank
@@ -19,6 +31,13 @@ Tests consistency of random template bank
 f_0 = 512.0 # Hz
 f_s = 20.0  # Hz
 S_0 = 1e-46  # arbitrary
+
+DEFAULT_ASDFILE = "/home/rngeorge/christiangithub/BSM_GW_searches/Code/data/LIGO-P1200087-v18-aLIGO_MID_LOW.txt"
+ASDfunc = TBG.asdf_fromfile(DEFAULT_ASDFILE)
+# testing that asdfunc works. put this in accept
+# ASD = ASDfunc(20)
+# print(ASD)
+
 
 m_range = (1 , 5)
 #FIX ME
@@ -46,7 +65,17 @@ def accept(vars: jnp.ndarray) -> jnp.ndarray:
     """
     Returns 1 if vars is in bounds, 0 otherwise.
     """
+
+    # testpoint = Point(0, 1)
+    # if p.contains(testpoint):
+    #     print("Contained!")
+    # else:
+    #     print("outside")
+
+    # need step sizes to go through array
+
     var1, var2, var3, var4, var5 = vars[..., 0], vars[..., 1],  vars[..., 2],  vars[..., 3],  vars[..., 4]
+    print(var1)
     var1_clipped = jnp.clip(var1, m_range[0], m_range[1])
     var2_clipped = jnp.clip(var2, m_range[0], m_range[1])
     var3_clipped = jnp.clip(var3, chiz_range[0], chiz_range[1])
@@ -69,7 +98,13 @@ def Sn_LIGO(f):
     """
     LIGO noise curve.
     """
+
     #load actual list, jnp.interpolate, make sure it is asd/psd
+
+    # return jnp.where(
+    #     f > f_s, ASDfunc(f), jnp.inf
+    # )
+
     return jnp.where(
         f > f_s, 1 / 5 * S_0 * ((f / f_0) ** (-4) + 2 * (1 + (f / f_0) ** 2)), jnp.inf
     )
