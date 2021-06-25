@@ -1,14 +1,14 @@
 import time
 
 from diffbank.metric import match
-from diffbank.utils import Sn_func, get_effectualness as _get_effectualness
+from diffbank.utils import Sn_func, get_match as _get_match
 from diffbank.waveforms.threePN_simple import Psi, amp
 from jax import jit, vmap
 import jax.numpy as jnp
 
 
 """
-Runs various tests on the match and effectualness.
+Runs various tests on the match.
 """
 
 
@@ -20,11 +20,11 @@ def test_match():
     theta_2 = jnp.array([3.0, 0.8])
     f = jnp.linspace(10, 500, 10000)
 
-    get_effectualness = jit(_get_effectualness, static_argnums=(2, 3, 5))
+    get_match = jit(_get_match, static_argnums=(2, 3, 5))
 
     t0 = time.time()
     for _ in range(1000):
-        get_effectualness(theta_1, theta_2, amp, Psi, f, Sn_func)
+        get_match(theta_1, theta_2, amp, Psi, f, Sn_func)
 
     t1 = time.time()
 
@@ -44,7 +44,7 @@ def test_matches():
     matches = vmap(match, in_axes=(None, 0, None, None, None, None, None))(
         theta_1, del_ts, theta_2 - theta_1, amp, Psi, f, Sn_func
     ).max()
-    match_fft = _get_effectualness(theta_1, theta_2, amp, Psi, f, Sn_func)
+    match_fft = _get_match(theta_1, theta_2, amp, Psi, f, Sn_func)
 
     assert jnp.allclose(match_fft, matches.max(), rtol=5e-3)
 
