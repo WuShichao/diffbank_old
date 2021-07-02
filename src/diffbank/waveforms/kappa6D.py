@@ -1,8 +1,6 @@
 from math import pi
-
-# import numpy as np
 import jax.numpy as jnp
-from ..constants import C, G, MSUN
+# from ..constants import C, G, MSUN
 
 
 def Psi(f: jnp.ndarray, theta: jnp.ndarray) -> jnp.ndarray:
@@ -225,12 +223,21 @@ def Amp(f: jnp.ndarray, theta: jnp.ndarray) -> jnp.ndarray:
     --------
     Strain (array):
     """
-    th0, th3, _, _, _, _ = theta
-    M_chirp = (
-        1 / (16 * pi * f[0]) * (125 / (2 * th0 ** 3)) ** (1 / 5) * C ** 3 / G
-    ) / MSUN
-    eta = (16 * pi ** 5 / 25 * th0 ** 2 / th3 ** 5) ** (1 / 3)
-    Mt = M_chirp / eta ** (3 / 5)
+    # (
+    #     th0,
+    #     th3,
+    #     _,
+    #     _,
+    #     _,
+    #     _,
+    # ) = theta
+    # M_chirp = (
+    #     1 / (16 * pi * f[0]) * (125 / (2 * th0 ** 3)) ** (1 / 5) * C ** 3 / G
+    # ) / MSUN
+    # eta = (16 * pi ** 5 / 25 * th0 ** 2 / th3 ** 5) ** (1 / 3)
+    # Mt = M_chirp / eta ** (3 / 5)
+
+    Mt, eta, _, _, _, _ = theta
     distance = 1.0
     pre = 3.6686934875530996e-19  # (GN*Msun/c^3)^(5/6)/Hz^(7/6)*c/Mpc/sec
     Mchirp = Mt * eta ** 0.6
