@@ -2,7 +2,7 @@ from jax import jit
 import jax.numpy as jnp
 
 from diffbank.metric import get_g, get_gam
-from diffbank.utils import Sn_func
+from diffbank.noise import Sn_aLIGO as Sn_func
 from diffbank.waveforms.taylorf2 import amp as _amp, Psi as _Psi
 
 """

@@ -1,7 +1,8 @@
 import time
 
 from diffbank.metric import match
-from diffbank.utils import Sn_func, get_match as _get_match
+from diffbank.utils import get_match as _get_match
+from diffbank.noise import Sn_aLIGO as Sn_func
 from diffbank.waveforms.threePN_simple import Psi, amp
 from jax import jit, vmap
 import jax.numpy as jnp

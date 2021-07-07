@@ -130,6 +130,22 @@ def gen_template_rejection(
     return jax.lax.while_loop(cond_fun, body_fun, init_val)[0]
 
 
+def gen_templates_rejection(
+    key,
+    density_max,
+    n_templates,
+    density_fun: Callable[[jnp.ndarray], jnp.ndarray],
+    sampler,
+) -> jnp.ndarray:
+    """
+    Generates a bank with n_templates samples using rejection sampling.
+    TODO: add tqdm somehow?
+    """
+    keys = random.split(key, n_templates)
+    f = lambda key: gen_template_rejection(key, density_max, density_fun, sampler)
+    return jax.lax.map(f, keys)
+
+
 def _update_uncovered_eff(pt, eff, template, minimum_match, amp, Psi, fs, Sn):
     """
     Computes match for point not covered by a template
@@ -267,4 +283,4 @@ def get_bank_effectualness(
             if show_progress:  # pbar is a tqdm
                 pbar.set_description(f"eta = {eta:.4f} +/- {eta_err:.4f}")  # type: ignore
 
-    return jnp.array(effs), eta, eta_err
+    return jnp.array(effs), eff_pts, eta, eta_err
