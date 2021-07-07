@@ -52,16 +52,16 @@ def get_g(theta, amp, Psi, fs, Sn) -> jnp.ndarray:
 
 
 @partial(jit, static_argnums=(1, 2, 4))
-def get_density(theta, amp, Psi, f, Sn) -> jnp.ndarray:
+def get_density(theta, amp, Psi, fs, Sn) -> jnp.ndarray:
     """
     Gets function returning metric determinant.
     """
-    return jnp.sqrt(jnp.linalg.det(get_g(theta, amp, Psi, f, Sn)))
+    return jnp.sqrt(jnp.linalg.det(get_g(theta, amp, Psi, fs, Sn)))
 
 
 @partial(jit, static_argnums=(1, 2, 4))
-def get_metric_ellipse(theta, amp, Psi, f, Sn) -> jnp.ndarray:
-    g = get_g(theta, amp, Psi, f, Sn)
+def get_metric_ellipse(theta, amp, Psi, fs, Sn) -> jnp.ndarray:
+    g = get_g(theta, amp, Psi, fs, Sn)
     eigval, norm_eigvec = jnp.linalg.eig(g)
     r_major, r_minor = 1 / jnp.sqrt(eigval)
     U = jnp.linalg.inv(norm_eigvec)

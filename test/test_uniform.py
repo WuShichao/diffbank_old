@@ -10,7 +10,10 @@ import matplotlib.pyplot as plt
 import numpy as np
 from tqdm.auto import trange
 
-from diffbank.utils import get_n_templates, get_template_frac_in_bounds
+#########################################
+# THIS TEST CURRENTLY DOESNT WORK
+#########################################
+# from diffbank.utils import get_n_templates, get_template_frac_in_bounds
 
 """
 Tests consistency of random template bank using a simple waveform model with
@@ -27,6 +30,9 @@ effectualness greater than the minimum match includes eta.
 def get_g(_):
     return jnp.identity(2)
 
+def amp(theta):
+    _, _ = theta
+    return jnp.()
 
 def density_fun(_):
     return jnp.array(1.0)
@@ -44,7 +50,7 @@ def get_eff(x, y):
 def _run(key, m1_max, m2_max, eta, mm, plot, suffix="", save_dir=""):
     key = random.PRNGKey(key)
     m_min, m1_max, m2_max = jnp.array(0.0), jnp.array(m1_max), jnp.array(m2_max)
-    naive_vol = (m1_max - m_min) * (m2_max - m_min)
+    # naive_vol = (m1_max - m_min) * (m2_max - m_min)
     m_star = 1 - mm  # maximum mismatch
 
     # Uniform sampler
@@ -56,75 +62,90 @@ def _run(key, m1_max, m2_max, eta, mm, plot, suffix="", save_dir=""):
             maxval=jnp.stack([m1_max, m2_max]),
         )
 
-    def is_in_bounds(theta):
-        m1, m2 = theta
-        return jnp.where(
-            m1 < m_min,
-            jnp.array(0.0),
-            jnp.where(
-                m1 > m1_max,
-                jnp.array(0.0),
-                jnp.where(
-                    m2 < m_min,
-                    jnp.array(0.0),
-                    jnp.where(m2 > m2_max, jnp.array(0.0), jnp.array(1.0)),
-                ),
-            ),
-        )
+    # def is_in_bounds(theta):
+    #     m1, m2 = theta
+    #     return jnp.where(
+    #         m1 < m_min,
+    #         jnp.array(0.0),
+    #         jnp.where(
+    #             m1 > m1_max,
+    #             jnp.array(0.0),
+    #             jnp.where(
+    #                 m2 < m_min,
+    #                 jnp.array(0.0),
+    #                 jnp.where(m2 > m2_max, jnp.array(0.0), jnp.array(1.0)),
+    #             ),
+    #         ),
+    #     )
 
     # Correct for boundary effects
     key, pts_key, ell_key = random.split(key, 3)
     pts_ib = sampler(pts_key, 1000)
-    frac_in_bounds, frac_in_bounds_err = get_template_frac_in_bounds(
-        ell_key, pts_ib, get_g, m_star, is_in_bounds, 100
-    )
-    assert frac_in_bounds_err / frac_in_bounds < 0.1
-    print(
-        f"Fraction of template volume in bounds: {frac_in_bounds} +/- {frac_in_bounds_err}"
-    )
+    # frac_in_bounds, frac_in_bounds_err = get_template_frac_in_bounds(
+    # ell_key, pts_ib, get_g, m_star, is_in_bounds, 100
+    # )
+    # assert frac_in_bounds_err / frac_in_bounds < 0.1
+    # print(
+    # f"Fraction of template volume in bounds: {frac_in_bounds} +/- {frac_in_bounds_err}"
+    # )
 
     # Generate bank
-    key, subkey = random.split(key)
-    n_templates, n_templates_err = get_n_templates(
-        subkey,
-        1000,
-        density_fun,
-        sampler,
-        eta,
-        m_star,
-        naive_vol,
-        frac_in_bounds,
-        frac_in_bounds_err=frac_in_bounds_err,
-    )
-    assert n_templates_err / n_templates < 0.1
-    print(f"{n_templates} +/- {n_templates_err} templates required")
+    # key, subkey = random.split(key)
+    # n_templates, n_templates_err = get_n_templates(
+    #     subkey,
+    #     1000,
+    #     density_fun,
+    #     sampler,
+    #     eta,
+    #     m_star,
+    #     naive_vol,
+    #     frac_in_bounds,
+    #     frac_in_bounds_err=frac_in_bounds_err,
+    # )
+    # assert n_templates_err / n_templates < 0.1
+    # print(f"{n_templates} +/- {n_templates_err} templates required")
 
-    n_templates_Zn = int(naive_vol / (2 * m_star / sqrt(2)) ** 2)
-    print(f"{n_templates_Zn} templates required for a Z_n lattice")
+    # n_templates_Zn = int(naive_vol / (2 * m_star / sqrt(2)) ** 2)
+    # print(f"{n_templates_Zn} templates required for a Z_n lattice")
 
     # Create the bank
-    key, subkey = random.split(key)
-    templates = sampler(subkey, n_templates)
+    # key, subkey = random.split(key)
+    # templates = sampler(subkey, n_templates)
 
-    # Compute effectualness
-    n_test = 500
-    key, subkey = random.split(key)
-    points = sampler(subkey, n_test)
-    effectualnesses = np.zeros(n_test)
+    # # Compute effectualness
+    # n_test = 500
+    # key, subkey = random.split(key)
+    # points = sampler(subkey, n_test)
+    # effectualnesses = np.zeros(n_test)
 
-    for i in trange(n_test):
-        effectualnesses[i] = jax.lax.map(
-            lambda template: get_eff(template, points[i]), templates
-        ).max()
-
-    eff_frac = jnp.mean(effectualnesses >= mm)
-    eff_frac_err = jnp.std(effectualnesses >= mm) / sqrt(len(effectualnesses))
-
-    # Test that the bank was generated consistently
-    assert eff_frac - 5 * eff_frac_err < eta and eta < eff_frac + 5 * eff_frac_err
-    print(
-        f"Effectualness: [{eff_frac - 2 * eff_frac_err}, {eff_frac + 2 * eff_frac_err}]"
+    # for i in trange(n_test):
+    #     effectualnesses[i] = jax.lax.map(
+    #         lambda template: get_eff(template, points[i]), templates
+    #     ).max()
+    bank = Bank(
+        amp,
+        Psi,
+        fs,
+        Sn_func,
+        sampler,
+        m_star=1 - 0.95,
+        eta=0.99,
+        name="3PN",
     )
+
+    bank.density_max = jnp.array(bank.get_density(jnp.array([m_range[0], m_range[0]])))
+
+    key, subkey = random.split(key)
+    bank.fill_bank(subkey)
+
+    # eff_frac = jnp.mean(effectualnesses >= mm)
+    # eff_frac_err = jnp.std(effectualnesses >= mm) / sqrt(len(effectualnesses))
+
+    # # Test that the bank was generated consistently
+    # assert eff_frac - 5 * eff_frac_err < eta and eta < eff_frac + 5 * eff_frac_err
+    # print(
+    #     f"Effectualness: [{eff_frac - 2 * eff_frac_err}, {eff_frac + 2 * eff_frac_err}]"
+    # )
 
     if plot:
         # Plot
