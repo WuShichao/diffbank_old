@@ -20,8 +20,8 @@ def binom_confint_wilson(n_success, n_obs, alpha=0.1):
     n_fail = n_obs - n_success
     z = jax.scipy.stats.norm.ppf(1 - alpha / 2)
     first_term = (n_success + 1 / 2 * z ** 2) / (n_obs + z ** 2)
-    second_term = z / (n_obs + z ** 2) * sqrt(n_success * n_fail / n_obs + z ** 2 / 4)
-    return first_term - second_term, min(1, first_term + second_term)
+    second_term = z / (n_obs + z ** 2) * jnp.sqrt(n_success * n_fail / n_obs + z ** 2 / 4)
+    return first_term - second_term #, jnp.min(1, first_term + second_term)
 
 
 def n_eff_pts(eta, alpha=0.1):
@@ -31,9 +31,15 @@ def n_eff_pts(eta, alpha=0.1):
     value with a template in the bank for the 1-alpha binomial confidence
     interval for `eta` to have lower bound equal to `eta`.
     """
+<<<<<<< HEAD
     fun = lambda n: binom_confint_wilson(n, n, alpha)[0] - eta
     # res = root_scalar(fun, x0=100, x1=1000, method='brentq')
     res = root_scalar(fun, bracket=[1, 1e5], method="brentq")
+=======
+    fun = lambda n: binom_confint_wilson(n, n, alpha) - eta
+    grad_fun = jax.grad(fun)
+    res = root_scalar(fun, x0=100, x1=1000, fprime=grad_fun)
+>>>>>>> be70924c3b95ea1b0bd8dd3cbf1d6540148b69b5
     assert res.converged
     return round(res.root)
 
@@ -177,7 +183,13 @@ def gen_bank_effpoints(
     eff_pt_sampler: Optional[Callable[[jnp.ndarray], jnp.ndarray]] = None,
     alpha: float = 0.65,
 ) -> jnp.ndarray:
+<<<<<<< HEAD
 
+=======
+    """
+    TODO: jax-ify
+    """
+>>>>>>> be70924c3b95ea1b0bd8dd3cbf1d6540148b69b5
     density_fun = lambda theta: get_density(theta, amp, Psi, fs, Sn)
     gen_template = jax.jit(
         lambda key: gen_template_rejection(key, density_max, density_fun, base_dist)
@@ -306,6 +318,9 @@ def get_bank_effectualness(
     base_dist: Optional[Callable[[jnp.ndarray, int], jnp.ndarray]] = None,
     density_max: Optional[jnp.ndarray] = None,
 ) -> jnp.ndarray:
+    """
+    TODO: jax-ify
+    """
     # Compile in the templates and waveform model
     @jax.jit
     def get_bank_eff(pt):
