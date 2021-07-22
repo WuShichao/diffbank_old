@@ -47,7 +47,7 @@ def gen_bank_stochastic(
       if the metric is available.
     - Accept if maximum match is below some threshold
     - Stop sampling when some convergence criterion is met. Currently this is
-      controlled by n.
+      controlled by n, the number of templates to generate.
 
     Reference: https://arxiv.org/abs/0908.2090
     """
