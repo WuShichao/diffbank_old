@@ -1,10 +1,9 @@
 from contextlib import nullcontext
 from math import pi
 from math import sqrt
-from typing import Callable, Optional
+from typing import Callable, Optional, Tuple
 import warnings
 
-from scipy.optimize import root_scalar
 from tqdm.auto import tqdm
 
 import jax
@@ -12,29 +11,20 @@ from jax import random
 import jax.numpy as jnp
 
 from .constants import C, G
-from .metric import get_density
+from .metric import get_density, get_g
 
 
-def binom_confint_wilson(n_success, n_obs, alpha=0.05):
-    n_fail = n_obs - n_success
-    z = jax.scipy.stats.norm.ppf(1 - alpha / 2)
-    first_term = (n_success + 1 / 2 * z ** 2) / (n_obs + z ** 2)
-    second_term = z / (n_obs + z ** 2) * jnp.sqrt(n_success * n_fail / n_obs + z ** 2 / 4)
-    return first_term - second_term #, jnp.min(1, first_term + second_term)
-
-
-def n_eff_pts(eta, alpha=0.05):
+def n_eff_pts(eta, r: float = 1):
     """
-    Gets number of `eff_pts` to use during bank generation. Works by finding
-    the number of `eff_pts` that must have minimum match greater than some
-    value with a template in the bank for the 1-alpha binomial confidence
-    interval for `eta` to have lower bound equal to `eta`.
+    Gets number of `eff_pts` to use during bank generation. This is computed by
+    setting
+
+        p(n_eff_pts | > eta) / p(n_eff_pts | < eta) > r,
+
+    where the likelihoods are those for n_eff_pts being within a minimum match
+    threshold of a template.
     """
-    fun = lambda n: binom_confint_wilson(n, n, alpha) - eta
-    grad_fun = jax.grad(fun)
-    res = root_scalar(fun, x0=100, x1=1000, fprime=grad_fun)
-    assert res.converged
-    return round(res.root)
+    return int(jnp.ceil(jnp.log(1 / (1 + r)) / jnp.log(eta) - 1))
 
 
 def ms_to_Mc_eta(m):
@@ -104,10 +94,63 @@ def get_match(theta1, theta2, amp, Psi, fs, Sn):
     return jnp.abs(overlap_tc).max()
 
 
+def sample_uniform_ball(key, dim, shape: Tuple[int] = (1,)) -> jnp.ndarray:
+    """
+    Uniformly sample from the unit ball.
+    """
+    xs = random.normal(key, shape + (dim,))
+    abs_xs = jnp.sqrt(jnp.sum(xs ** 2, axis=-1, keepdims=True))
+    sphere_samples = xs / abs_xs
+    rs = random.uniform(key, shape + (1,)) ** (1 / dim)
+    return sphere_samples * rs
+
+
+def sample_uniform_metric_ellipse(
+    key: jnp.ndarray,
+    g: jnp.ndarray,
+    n: int,
+) -> jnp.ndarray:
+    """
+    Uniformly sample inside a metric ellipse centered at the origin.
+    """
+    dim = g.shape[1]
+    # radius = jnp.sqrt(m_star)
+    ball_samples = sample_uniform_ball(key, dim, (n,))
+    trafo = jnp.linalg.inv(jnp.linalg.cholesky(g))
+    return ball_samples @ trafo.T
+
+
+def get_template_frac_in_bounds(
+    key: jnp.ndarray,
+    theta: jnp.ndarray,
+    get_g: Callable[[jnp.ndarray], jnp.ndarray],
+    m_star,
+    is_in_bounds: Callable[[jnp.ndarray], jnp.ndarray],
+    n: int,
+) -> Tuple[jnp.ndarray, jnp.ndarray]:
+    """
+    Estimates average fraction of a template's metric ellipse lying inside the
+    parameter space.
+    Args:
+      is_in_bounds: callable that takes a point and returns 1 if it is in the
+        parameter space and 0 if not.
+      n: number of points to sample in each template ellipse.
+    Returns:
+      MC estimate (along with error) of the fraction of the volume of the
+      templates centered on ``theta`` that lies in the parameter space.
+    """
+    # Rescale metric ellipse samples to have radius ``sqrt(m_star)`` and
+    # recenter on ``theta``
+    ellipse_samples_0 = sample_uniform_metric_ellipse(key, get_g(theta), n)
+    ellipse_samples = jnp.sqrt(m_star) * ellipse_samples_0 + theta
+    in_bounds = jnp.concatenate((jnp.array([1.]), jax.lax.map(is_in_bounds, ellipse_samples)))
+    return in_bounds.mean(), in_bounds.std() / jnp.sqrt(n + 1)
+
+
 def gen_template_rejection(
     key,
     density_max,
-    density_fun: Callable[[jnp.ndarray], jnp.ndarray],
+    density_fun: Callable[[jnp.ndarray, jnp.ndarray], jnp.ndarray],
     base_dist: Callable[[jnp.ndarray, int], jnp.ndarray],
 ) -> jnp.ndarray:
     """
@@ -115,15 +158,16 @@ def gen_template_rejection(
     """
 
     def cond_fun(val):
-        theta, u_key = val[0], val[3]
+        theta, cond_key = val[0], val[3]
+        u_key, density_key = random.split(cond_key)
         u = random.uniform(u_key)
-        return u >= density_fun(theta) / density_max
+        return u >= density_fun(density_key, theta) / density_max
 
     def body_fun(val):
         key = val[1]
-        key, theta_key, u_key = random.split(key, 3)
+        key, theta_key, cond_key = random.split(key, 3)
         theta = base_dist(theta_key, 1)[0]
-        return (theta, key, theta_key, u_key)  # new val
+        return (theta, key, theta_key, cond_key)  # new val
 
     # Only second element of init_val matters
     init_val = body_fun((None, key, None, None))
@@ -135,7 +179,7 @@ def gen_templates_rejection(
     key,
     density_max,
     n_templates,
-    density_fun: Callable[[jnp.ndarray], jnp.ndarray],
+    density_fun: Callable[[jnp.ndarray, jnp.ndarray], jnp.ndarray],
     sampler,
 ) -> jnp.ndarray:
     """
@@ -174,19 +218,46 @@ def gen_bank(
     eta: float,
     show_progress: bool = True,
     eff_pt_sampler: Optional[Callable[[jnp.ndarray], jnp.ndarray]] = None,
-    alpha: float = 0.05,
+    r: float = 1,
+    is_in_bounds: Optional[Callable[[jnp.ndarray], jnp.ndarray]] = None,
+    n_fib: int = 1000,
 ) -> jnp.ndarray:
     """
+    Arguments
+    - density_max: maximum value of density function. This is either sqrt(|g|)
+      or sqrt(|g|) / f_ib, depending on whether `is_in_bounds` is provided.
+    - r: likelihood ratio p(> eta | n_eff_pts) / p(< eta | n_eff_pts) for
+      setting the number of effectualness points.
+    - is_in_bounds: function returning 1 if the argument is in bounds and 0
+      otherwise. If `None`, the fraction of points in each metric ellipse will
+      not be used to reweight the template density.
+    - n_fib: number of points used to estimate fraction of each template in
+      bounds.
+
     TODO: jax-ify
     """
-    density_fun = lambda theta: get_density(theta, amp, Psi, fs, Sn)
+    if is_in_bounds is not None:
+        warnings.warn("using f_ib probably won't improve your bank")
+
+        if n_fib <= 0: raise ValueError("n_fib must be positive")
+
+        _get_g = lambda theta: get_g(theta, amp, Psi, fs, Sn)
+        density_fun = (
+            lambda key, theta: get_density(theta, amp, Psi, fs, Sn)
+            / get_template_frac_in_bounds(
+                key, theta, _get_g, 1 - minimum_match, is_in_bounds, n_fib
+            )[0]
+        )
+    else:
+        density_fun = lambda _, theta: get_density(theta, amp, Psi, fs, Sn)
+
     gen_template = jax.jit(
         lambda key: gen_template_rejection(key, density_max, density_fun, base_dist)
     )
-    if eff_pt_sampler is None:
-        eff_pt_sampler = gen_template
 
-    n_eff = n_eff_pts(eta, alpha)
+    if eff_pt_sampler is None: eff_pt_sampler = gen_template
+
+    n_eff = n_eff_pts(eta, r)
     keys = random.split(key, 1 + n_eff)
     key_bank, keys_eff = keys[0], keys[1:]
 
