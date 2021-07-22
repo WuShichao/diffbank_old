@@ -1,20 +1,11 @@
 import os
 from typing import Callable, Optional, Set, Union
 
-# import warnings
-
 import jax
 import jax.numpy as jnp
 
-# import numpy as np
-# from tqdm.auto import trange
-
 from .metric import get_density, get_g, get_gam
-from .utils import (
-    gen_templates_rejection,
-    get_bank_effectualness,
-    gen_bank,
-)
+from .utils import gen_bank, gen_templates_rejection, get_bank_effectualness
 
 
 class Bank:
@@ -28,7 +19,6 @@ class Bank:
             "frac_in_bounds",
             "frac_in_bounds_err",
             "n_templates",
-            # "n_templates_err",
             "templates",
             "effectualness_points",
             "effectualnesses",
@@ -40,8 +30,6 @@ class Bank:
     provided_vars: Set[str] = set(
         [
             "fs",
-            # "naive_vol",
-            # "naive_vol_err",
             "m_star",
             "eta",
             "name",
@@ -157,11 +145,12 @@ class Bank:
             key, self.density_max, n_templates, self.get_density, self.sampler
         )
 
-    def fill_bank(self, key: jnp.ndarray, show_progress: bool = True):
+    def fill_bank(self, key: jnp.ndarray, show_progress: bool = True, r: float = 1):
         """
-        Fills the bank with the required number of templates.
+        Fills the bank with the required number of templates. See docs for
+        `gen_bank`.
         """
-        templates, eff_pts = gen_bank(
+        templates, _ = gen_bank(
             key,
             self.density_max,
             self.sampler,
@@ -172,6 +161,7 @@ class Bank:
             self.minimum_match,
             self.eta,
             show_progress=show_progress,
+            r=r,
         )
         self.templates = templates
         self.n_templates = templates.shape[0]
@@ -180,7 +170,6 @@ class Bank:
         self,
         key: jnp.ndarray,
         n: int,
-        # points: Optional[jnp.ndarray] = None,
     ):
         """
         Computes effectualnesses for a sample of parameter points, adds the
