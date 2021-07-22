@@ -1,5 +1,6 @@
 from math import pi
 import jax.numpy as jnp
+
 # from ..constants import C, G, MSUN
 
 
@@ -11,19 +12,28 @@ def Psi(f: jnp.ndarray, theta: jnp.ndarray) -> jnp.ndarray:
     phase (array): Phase of the GW as a function of frequency
     """
 
-    # Mt, eta, chi_1, chi_2 = theta
+    mass1, mass2, chi_1, chi_2 = theta
+    # (
+    #     Mt,
+    #     eta,
+    #     chi_1,
+    #     chi_2,
+    # ) = theta
 
-    # kappa1 = 1.0
-    # kappa2 = 1.0
+    Mt = mass1 + mass2
+    eta = mass1 * mass2 / (mass1 + mass2) ** 2
+
+    kappa1 = 1.0
+    kappa2 = 1.0
 
     # Mt, eta, chi_1, chi_2, kappa1, kappa2 = theta
 
-    th0, th3, chi_1, chi_2, kappa1, kappa2 = theta
-    M_chirp = (
-        1 / (16 * pi * f[0]) * (125 / (2 * th0 ** 3)) ** (1 / 5) * C ** 3 / G
-    ) / MSUN
-    eta = (16 * pi ** 5 / 25 * th0 ** 2 / th3 ** 5) ** (1 / 3)
-    Mt = M_chirp / eta ** (3 / 5)
+    # th0, th3, chi_1, chi_2, kappa1, kappa2 = theta
+    # M_chirp = (
+    #     1 / (16 * pi * f[0]) * (125 / (2 * th0 ** 3)) ** (1 / 5) * C ** 3 / G
+    # ) / MSUN
+    # eta = (16 * pi ** 5 / 25 * th0 ** 2 / th3 ** 5) ** (1 / 3)
+    # Mt = M_chirp / eta ** (3 / 5)
 
     gt = 4.92549094830932e-6  # GN*Msun/c^3 in seconds
     EulerGamma = 0.57721566490153286060
@@ -237,7 +247,17 @@ def Amp(f: jnp.ndarray, theta: jnp.ndarray) -> jnp.ndarray:
     # eta = (16 * pi ** 5 / 25 * th0 ** 2 / th3 ** 5) ** (1 / 3)
     # Mt = M_chirp / eta ** (3 / 5)
 
-    Mt, eta, _, _, _, _ = theta
+    # (
+    #     Mt,
+    #     eta,
+    #     _,
+    #     _,
+    # ) = theta
+
+    mass1, mass2, _, _ = theta
+
+    Mt = mass1 + mass2
+    eta = mass1 * mass2 / (mass1 + mass2) ** 2
     distance = 1.0
     pre = 3.6686934875530996e-19  # (GN*Msun/c^3)^(5/6)/Hz^(7/6)*c/Mpc/sec
     Mchirp = Mt * eta ** 0.6

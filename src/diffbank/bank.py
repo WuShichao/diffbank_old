@@ -2,10 +2,16 @@ import os
 from typing import Callable, Optional, Set, Union
 
 import jax
+from jax import random
 import jax.numpy as jnp
 
 from .metric import get_density, get_g, get_gam
-from .utils import gen_bank, gen_templates_rejection, get_bank_effectualness
+from .utils import (
+    gen_bank_effpoints,
+    gen_bank_stochastic,
+    gen_templates_rejection,
+    get_bank_effectualness,
+)
 
 
 class Bank:
@@ -16,8 +22,6 @@ class Bank:
     computed_vars: Set[str] = set(
         [
             "density_max",
-            "frac_in_bounds",
-            "frac_in_bounds_err",
             "n_templates",
             "templates",
             "effectualness_points",
@@ -57,8 +61,6 @@ class Bank:
         self.name = name
 
         self.density_max: Optional[jnp.ndarray] = None
-        self.frac_in_bounds: Optional[jnp.ndarray] = None
-        self.frac_in_bounds_err: Optional[jnp.ndarray] = None
         self.n_templates: Optional[jnp.ndarray] = None
         self.templates: Optional[jnp.ndarray] = None
         self.effectualness_points: Optional[jnp.ndarray] = None
@@ -67,7 +69,7 @@ class Bank:
         self._eta_est_err: Optional[jnp.ndarray] = None
 
         # Key doesn't matter
-        self._dim = self.sampler(jax.random.PRNGKey(1), 1).shape[-1]
+        self._dim = self.sampler(random.PRNGKey(1), 1).shape[-1]
 
     def __str__(self):
         return f"Bank(m_star={float(self.m_star)}, eta={float(self.eta)}, dim={self.dim}, name='{self.name}')"
@@ -145,26 +147,48 @@ class Bank:
             key, self.density_max, n_templates, self.get_density, self.sampler
         )
 
-    def fill_bank(self, key: jnp.ndarray, show_progress: bool = True, r: float = 1):
+    def fill_bank(
+        self,
+        key: jnp.ndarray,
+        show_progress: bool = True,
+        method="eff_points",
+        r: float = 1,
+    ):
         """
         Fills the bank with the required number of templates. See docs for
         `gen_bank`.
         """
-        templates, _ = gen_bank(
-            key,
-            self.density_max,
-            self.sampler,
-            self.amp,
-            self.Psi,
-            self.fs,
-            self.Sn,
-            self.minimum_match,
-            self.eta,
-            show_progress=show_progress,
-            r=r,
-        )
-        self.templates = templates
-        self.n_templates = templates.shape[0]
+        if method == "eff_points":
+            templates, _ = gen_bank_effpoints(
+                key,
+                self.density_max,
+                self.sampler,
+                self.amp,
+                self.Psi,
+                self.fs,
+                self.Sn,
+                self.minimum_match,
+                self.eta,
+                show_progress=show_progress,
+                r=r,
+            )
+            self.templates = templates
+            self.n_templates = templates.shape[0]
+
+        elif method == "stochastic":
+            templates = gen_bank_stochastic(
+                key,
+                self.density_max,
+                self.sampler,
+                self.amp,
+                self.Psi,
+                self.fs,
+                self.Sn,
+                self.minimum_match,
+                self.eta,
+            )
+            self.templates = templates
+            self.n_templates = templates.shape[0]
 
     def calculate_bank_effectualness(
         self,
@@ -232,95 +256,3 @@ class Bank:
             setattr(bank, name, d[name])
 
         return bank
-
-    # def compute_effectualnesses(
-    #     self,
-    #     key: Optional[jnp.ndarray] = None,
-    #     n: Optional[int] = None,
-    #     points: Optional[jnp.ndarray] = None,
-    # ):
-    #     """
-    #     Computes effectualnesses for a sample of parameter points, adds the
-    #     points as the attribute ``effectualness_points`` and uses this to
-    #     estimate ``eta``. The estimate of ``eta`` and the associated error are
-    #     accessible through the ``eta_est`` and ``eta_est_err`` properties.
-
-    #     If ``points`` is provided, the effectualness will be computed using
-    #     this sample. Otherwise ``n`` points will be drawn uniformly in proper
-    #     volume using the PRNG key ``key``.
-    #     """
-    #     if points is not None:
-    #         n = len(points)
-    #     elif key is not None and n is not None:
-    #         points = self.gen_templates_rejection(key, n)
-    #     else:
-    #         raise ValueError("either 'points' or both 'key' and 'n' must be provided")
-
-    #     effectualnesses = np.zeros(n)
-
-    #     get_eff_jit = jax.jit(
-    #         lambda template, sample: get_effectualness(
-    #             template, sample, self.amp, self.Psi, self.fs, self.Sn
-    #         )
-    #     )
-
-    #     pbar = trange(n)
-
-    #     try:
-    #         for i in pbar:
-    #             effectualnesses[i] = jax.lax.map(
-    #                 lambda template: get_eff_jit(template, points[i]), self.templates
-    #             ).max()
-
-    #             # Keep track of eta estimate. Should be fast enough to keep in
-    #             # the loop.
-    #             self._eta_est = jnp.mean(effectualnesses[:i] > self.minimum_match)
-    #             self._eta_est_err = jnp.std(
-    #                 effectualnesses[:i] > self.minimum_match
-    #             ) / jnp.sqrt(i)
-
-    #             pbar.set_postfix_str(
-    #                 f"eta ~ {self.eta_est:.3f} +/- {self.eta_est_err:.3f}"
-    #             )
-    #     finally:
-    #         self.effectualnesses = jnp.array(effectualnesses)
-    #         self.effectualness_points = points
-
-    # def compute_template_frac_in_bounds(self, key, n_pts, n_per_pt):
-    #     """
-    #     Sets the fraction of points in the average template's metric ellipse
-    #     that lie in the parameter space.
-    #     """
-    #     thetas = self.gen_templates_rejection(key, n_pts)
-    #     self.frac_in_bounds, self.frac_in_bounds_err = get_template_frac_in_bounds(
-    #         key, thetas, self.get_g, self.m_star, self.is_in_bounds, n_per_pt
-    #     )
-
-    # def compute_n_templates(self, key: jnp.ndarray, n_samples: Union[int, jnp.ndarray]):
-    #     """
-    #     Sets the number of templates for the bank.
-    #     """
-    #     if self.frac_in_bounds is not None and self.frac_in_bounds_err is not None:
-    #         frac_in_bounds = self.frac_in_bounds
-    #         frac_in_bounds_err = self.frac_in_bounds_err
-    #     else:
-    #         warnings.warn(
-    #             "'frac_in_bounds' has not been computed, so number of "
-    #             "templates will be underestimated",
-    #             RuntimeWarning,
-    #         )
-    #         frac_in_bounds = jnp.array(1.0)
-    #         frac_in_bounds_err = jnp.array(0.0)
-
-    #     self.n_templates, self.n_templates_err = get_n_templates(
-    #         key,
-    #         n_samples,
-    #         self.get_density,
-    #         self.sampler,
-    #         self.eta,
-    #         self.m_star,
-    #         self.naive_vol,
-    #         frac_in_bounds,
-    #         self.naive_vol_err,
-    #         frac_in_bounds_err,
-    #     )

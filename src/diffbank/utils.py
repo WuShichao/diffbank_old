@@ -9,6 +9,7 @@ from tqdm.auto import tqdm
 import jax
 from jax import random
 import jax.numpy as jnp
+from jax.scipy.special import gammaln
 
 from .constants import C, G
 from .metric import get_density, get_g
@@ -206,7 +207,7 @@ def _update_uncovered_eff(pt, eff, template, minimum_match, amp, Psi, fs, Sn):
     return jax.lax.cond(uncovered, true_fun, false_fun, pt)
 
 
-def gen_bank(
+def gen_bank_effpoints(
     key: jnp.ndarray,
     density_max: jnp.ndarray,
     base_dist: Callable[[jnp.ndarray, int], jnp.ndarray],
@@ -214,7 +215,7 @@ def gen_bank(
     Psi,
     fs,
     Sn: Callable[[jnp.ndarray], jnp.ndarray],
-    minimum_match: int,
+    minimum_match: float,
     eta: float,
     show_progress: bool = True,
     eff_pt_sampler: Optional[Callable[[jnp.ndarray], jnp.ndarray]] = None,
@@ -300,6 +301,69 @@ def gen_bank(
     return jnp.array(templates), eff_pts
 
 
+def gen_bank_stochastic(
+    key: jnp.ndarray,
+    density_max: jnp.ndarray,
+    base_dist: Callable[[jnp.ndarray, int], jnp.ndarray],
+    amp,
+    Psi,
+    fs,
+    Sn: Callable[[jnp.ndarray], jnp.ndarray],
+    minimum_match: float,
+    eta: float,
+) -> jnp.ndarray:
+    density_fun = lambda theta: get_density(theta, amp, Psi, fs, Sn)
+    gen_template = jax.jit(
+        lambda key: gen_template_rejection(key, density_max, density_fun, base_dist)
+    )
+
+    # Construct fast match checker
+    @jax.jit
+    def accept_proposed_template(template, templates):
+        matches = jax.lax.map(
+            lambda template_temp: get_match(template_temp, template, amp, Psi, fs, Sn),
+            templates,
+        )
+        return (matches >= minimum_match).sum()
+
+    # Add first and second template
+    # Note that these might be close to each other
+    key_bank, key_template = random.split(key)
+    templates = jnp.array(gen_template(key_template))
+
+    key_bank, key_template = random.split(key_bank)
+    templates = jnp.vstack((templates, gen_template(key_template)))
+
+    # Fill the bank!
+    acceptance_rate = 1.0
+    while acceptance_rate > 1 - eta:
+        # loop to propose points
+        accept_template = False
+        proposal_counter = 1
+        while accept_template is False:
+            # Make template
+            key_bank, key_template = random.split(key_bank)
+            template = gen_template(key_template)
+
+            # Check template
+            match_sum = accept_proposed_template(template, templates)
+            if match_sum == 0.0:
+                templates = jnp.vstack((templates, template))
+                accept_template = True
+            else:
+                proposal_counter += 1
+                continue
+
+        # Update accepntance rate
+        acceptance_rate = 1 / proposal_counter
+
+        if len(templates) % 10 == 0.0:
+            print("Number of template: %.0f" % len(templates))
+            print("Acceptance Rate: %.2f" % acceptance_rate)
+
+    return templates
+
+
 def get_bank_effectualness(
     key: jnp.ndarray,
     templates,
@@ -362,3 +426,160 @@ def get_bank_effectualness(
                 pbar.set_description(f"eta = {eta:.4f} +/- {eta_err:.4f}")  # type: ignore
 
     return jnp.array(effs), eff_pts, eta, eta_err
+
+
+# def get_sphere_vol(n) -> jnp.ndarray:
+#     """
+#     Volume of n-sphere.
+#     """
+#     return pi ** (n / 2) / jnp.exp(gammaln((n / 2) + 1))
+
+
+# def estimate_n_templates(
+#     key,
+#     n_samples,
+#     density_fun: Callable[[jnp.ndarray], jnp.ndarray],
+#     sampler: Callable[[jnp.ndarray, int], jnp.ndarray],
+#     eta,
+#     m_star,
+#     naive_vol,
+#     frac_in_bounds: jnp.ndarray = jnp.array(1.0),
+#     naive_vol_err: jnp.ndarray = jnp.array(0.0),
+#     frac_in_bounds_err: jnp.ndarray = jnp.array(0.0),
+# ) -> Tuple[jnp.ndarray, jnp.ndarray]:
+#     """
+#     Estimates number of templates required to cover a parameter space with a
+#     random bank.
+
+#     Args:
+#     naive_vol: parameter space volume ignoring the metric. For example, a
+#         waveform parametrized by (x, y) with 0 < x < x_max and 0 < y < x would
+#         have naive_vol = 1/2 * x_max**2 regardless of the metric.
+
+#     Returns:
+#     MC estimate (and error) for required number of templates.
+
+
+#     Reference:
+#     Eq. 14 in https://arxiv.org/abs/0809.5223
+#     """
+#     dim = sampler(key, 1).shape[-1]  # fine to reuse key here!
+
+#     # Uncorrected template ellipsoid volume
+#     vol_template = m_star ** (dim / 2) * get_sphere_vol(dim)
+
+#     # Parameter space volume
+#     thetas = sampler(key, n_samples)
+#     densities = jax.lax.map(density_fun, thetas)
+#     density = jnp.mean(densities)
+#     vol_spaces = naive_vol * density
+#     vol_space = jnp.mean(vol_spaces)
+
+#     # MC samples of number of templates
+#     n = (
+#         jnp.log(1 - eta) / jnp.log(1 - frac_in_bounds * vol_template / vol_space)
+#     ).astype(jnp.int64)
+
+#     # Propagate error from parameter space volume
+#     density_err = jnp.std(densities) / jnp.sqrt(n_samples)
+#     vol_space_err = jnp.sqrt(
+#         (naive_vol * density_err) ** 2 + (naive_vol_err * density) ** 2
+#     )
+#     dn_dvol_space = (
+#         frac_in_bounds
+#         * vol_template
+#         * jnp.log(1 - eta)
+#         / (
+#             vol_space
+#             * (frac_in_bounds * vol_template - vol_space)
+#             * jnp.log(1 - frac_in_bounds * vol_template / vol_space) ** 2
+#         )
+#     )
+
+#     # Propagate error from fraction of template volume in bounds
+#     dn_dfib = (
+#         vol_template
+#         * jnp.log(1 - eta)
+#         / (
+#             (vol_space - frac_in_bounds * vol_template)
+#             * jnp.log(1 - frac_in_bounds * vol_template / vol_space) ** 2
+#         )
+#     )
+
+#     # Total error
+#     n_err = jnp.sqrt(
+#         (dn_dvol_space * vol_space_err) ** 2 + (dn_dfib * frac_in_bounds_err) ** 2
+#     )
+
+#     return n, n_err
+
+
+def sample_uniform_ball(key, dim, shape: Tuple[int] = (1,)) -> jnp.ndarray:
+    """
+    Uniformly sample from the unit ball.
+    """
+    xs = random.normal(key, shape + (dim,))
+    abs_xs = jnp.sqrt(jnp.sum(xs ** 2, axis=-1, keepdims=True))
+    sphere_samples = xs / abs_xs
+    rs = random.uniform(key, shape + (1,)) ** (1 / dim)
+    return sphere_samples * rs
+
+
+def sample_uniform_metric_ellipse(
+    key: jnp.ndarray,
+    g: jnp.ndarray,
+    # theta: jnp.ndarray,
+    # get_g: Callable[[jnp.ndarray], jnp.ndarray],
+    # m_star,
+    n: int,
+) -> jnp.ndarray:
+    """
+    Uniformly sample inside a metric ellipse centered at the origin.
+    """
+    dim = g.shape[1]
+    # radius = jnp.sqrt(m_star)
+    ball_samples = sample_uniform_ball(key, dim, (n,))
+    trafo = jnp.linalg.inv(jnp.linalg.cholesky(g))
+    return ball_samples @ trafo.T
+
+
+# def get_template_frac_in_bounds(
+#     key: jnp.ndarray,
+#     thetas: jnp.ndarray,
+#     get_g: Callable[[jnp.ndarray], jnp.ndarray],
+#     m_star,
+#     is_in_bounds: Callable[[jnp.ndarray], jnp.ndarray],
+#     n: int,
+# ) -> Tuple[jnp.ndarray, jnp.ndarray]:
+#     """
+#     Estimates average fraction of a template's metric ellipse lying inside the
+#     parameter space.
+
+#     Args:
+#     is_in_bounds: callable that takes a point and returns 1 if it is in the
+#         parameter space and 0 if not.
+#     n: number of points to sample in each template ellipse.
+
+#     Returns:
+#     MC estimate (along with error) of the fraction of the volume of the
+#     templates centered on ``theta`` that lies in the parameter space.
+#     """
+
+#     def helper(x):
+#         """
+#         Rescale metric ellipse samples to have radius ``sqrt(m_star)`` and
+#         recenter on ``theta``.
+#         """
+#         key = x["key"].astype(jnp.uint32)
+#         theta = x["theta"]
+#         ellipse_samples_0 = sample_uniform_metric_ellipse(key, get_g(theta), n)
+#         return jnp.sqrt(m_star) * ellipse_samples_0 + theta
+
+#     keys = random.split(key, len(thetas))
+#     dim = thetas.shape[1]
+#     ellipse_samples = jax.lax.map(helper, {"key": keys, "theta": thetas}).reshape(
+#         [-1, dim]
+#     )
+#     print(ellipse_samples)
+#     in_bounds = jax.lax.map(is_in_bounds, ellipse_samples)
+#     return in_bounds.mean(), in_bounds.std() / jnp.sqrt(len(thetas) * n)
