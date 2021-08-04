@@ -4,7 +4,7 @@ from jax import random
 import jax.numpy as jnp
 import jax.experimental.host_callback as hcb
 from tqdm.auto import tqdm
-from .utils import get_match
+from .utils import get_effectualness
 
 
 def pbar_factory(total):
@@ -53,7 +53,7 @@ def gen_bank_stochastic(
     """
     n_dim = 2  # len(gen_template(key))
     _get_match = jax.jit(
-        lambda theta1, theta2: get_match(theta1, theta2, amp, Psi, fs, Sn)
+        lambda theta1, theta2: get_effectualness(theta1, theta2, amp, Psi, fs, Sn)
     )
     incr, set_n_rejects, close = pbar_factory(n)
 

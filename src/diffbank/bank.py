@@ -1,5 +1,5 @@
 import os
-from typing import Callable, Optional, Set, Union
+from typing import Callable, Set
 
 import jax
 from jax import random
@@ -7,10 +7,12 @@ import jax.numpy as jnp
 
 from .metric import get_density, get_g, get_gam
 from .utils import (
-    gen_bank_effpoints,
+    gen_bank_random,
     gen_bank_stochastic,
+    gen_template_rejection,
     gen_templates_rejection,
     get_bank_effectualness,
+    get_effectualness,
 )
 
 
@@ -26,8 +28,8 @@ class Bank:
             "templates",
             "effectualness_points",
             "effectualnesses",
-            "_eta_est",
-            "_eta_est_err",
+            "eta_est",
+            "eta_est_err",
             "_dim",
         ]
     )
@@ -47,8 +49,8 @@ class Bank:
         fs: jnp.ndarray,
         Sn: Callable[[jnp.ndarray], jnp.ndarray],
         sampler: Callable[[jnp.ndarray, int], jnp.ndarray],
-        m_star: Union[float, jnp.ndarray],
-        eta: Union[float, jnp.ndarray],
+        m_star: float,
+        eta: float,
         name: str = "test",
     ):
         self.amp = amp
@@ -60,13 +62,13 @@ class Bank:
         self.eta = eta
         self.name = name
 
-        self.density_max: Optional[jnp.ndarray] = None
-        self.n_templates: Optional[jnp.ndarray] = None
-        self.templates: Optional[jnp.ndarray] = None
-        self.effectualness_points: Optional[jnp.ndarray] = None
-        self.effectualnesses: Optional[jnp.ndarray] = None
-        self._eta_est: Optional[jnp.ndarray] = None
-        self._eta_est_err: Optional[jnp.ndarray] = None
+        self.density_max: jnp.ndarray = None
+        self.n_templates: jnp.ndarray = None
+        self.templates: jnp.ndarray = None
+        self.effectualness_points: jnp.ndarray = None
+        self.effectualnesses: jnp.ndarray = None
+        self.eta_est: jnp.ndarray = None
+        self.eta_est_err: jnp.ndarray = None
 
         # Key doesn't matter
         self._dim = self.sampler(random.PRNGKey(1), 1).shape[-1]
@@ -78,60 +80,46 @@ class Bank:
         return str(self)  # for now
 
     @property
-    def minimum_match(self):
-        return 1 - self.m_star
-
-    @property
-    def m_star(self):
-        return self._m_star
-
-    @m_star.setter
-    def m_star(self, m_star):
-        if m_star < 0 or m_star > 1:
-            raise ValueError("m_star must be a scalar in (0, 1)")
-        self._m_star = m_star
-
-    @property
-    def eta(self):
-        return self._eta
-
-    @property
-    def eta_est(self):
-        return self._eta_est
-
-    @property
-    def eta_est_err(self):
-        return self._eta_est_err
-
-    @eta.setter
-    def eta(self, eta):
-        if eta < 0 or eta > 1:
-            raise ValueError("eta must be a scalar in (0, 1)")
-        self._eta = eta
-
-    @property
     def dim(self) -> int:
         return self._dim
 
-    def get_density(self, theta) -> jnp.ndarray:
+    def effectualness_fun(
+        self, theta1: jnp.ndarray, theta2: jnp.ndarray
+    ) -> jnp.ndarray:
+        """
+        Effectualness between two points
+        """
+        return get_effectualness(theta1, theta2, self.amp, self.Psi, self.fs, self.Sn)
+
+    def density_fun(self, theta: jnp.ndarray) -> jnp.ndarray:
         """
         Template density, sqrt(|g|).
         """
         return get_density(theta, self.amp, self.Psi, self.fs, self.Sn)
 
-    def get_g(self, theta) -> jnp.ndarray:
+    def g_fun(self, theta) -> jnp.ndarray:
         """
         Parameter space metric maximized over extrinsic parameters t_0 and
         Phi_0, g.
         """
         return get_g(theta, self.amp, self.Psi, self.fs, self.Sn)
 
-    def get_gam(self, theta) -> jnp.ndarray:
+    def gam_fun(self, theta) -> jnp.ndarray:
         """
         t_0 and parameter space metric maximized over the extrinsic parameter
         Phi_0, gamma.
         """
         return get_gam(theta, self.amp, self.Psi, self.fs, self.Sn)
+
+    def gen_template_rejection(self, key: jnp.ndarray) -> jnp.ndarray:
+        if self.density_max is None:
+            raise ValueError(
+                "must set bank's 'density_max' attribute to an estimate of the"
+                " maximum value of sqrt(|g|)"
+            )
+        return gen_template_rejection(
+            key, self.density_max, self.density_fun, self.sampler
+        )
 
     def gen_templates_rejection(self, key: jnp.ndarray, n_templates) -> jnp.ndarray:
         """
@@ -139,61 +127,60 @@ class Bank:
         """
         if self.density_max is None:
             raise ValueError(
-                "Must set bank's 'density_max' attribute to an estimate of the"
+                "must set bank's 'density_max' attribute to an estimate of the"
                 " maximum value of sqrt(|g|)"
             )
-
         return gen_templates_rejection(
-            key, self.density_max, n_templates, self.get_density, self.sampler
+            key, n_templates, self.density_max, self.density_fun, self.sampler
         )
 
     def fill_bank(
         self,
         key: jnp.ndarray,
+        method="random",
+        r: float = 3,
         show_progress: bool = True,
-        method="eff_points",
-        r: float = 1,
     ):
         """
         Fills the bank with the required number of templates. See docs for
         `gen_bank`.
         """
-        if method == "eff_points":
-            templates, _ = gen_bank_effpoints(
+        if self.density_max is None:
+            raise ValueError(
+                "must set bank's 'density_max' attribute to an estimate of the"
+                " maximum value of sqrt(|g|)"
+            )
+
+        if method == "random":
+            self.templates, _ = gen_bank_random(
                 key,
+                1 - self.m_star,
+                self.eta,
+                self.effectualness_fun,
                 self.density_max,
                 self.sampler,
-                self.amp,
-                self.Psi,
-                self.fs,
-                self.Sn,
-                self.minimum_match,
-                self.eta,
-                show_progress=show_progress,
+                self.density_fun,
                 r=r,
+                show_progress=show_progress,
             )
-            self.templates = templates
-            self.n_templates = templates.shape[0]
-
+            self.n_templates = len(self.templates)
         elif method == "stochastic":
-            templates = gen_bank_stochastic(
+            propose_template = jax.jit(lambda key: self.sampler(key, 1)[0])
+            eff_pt_sampler = jax.jit(self.gen_template_rejection)
+            self.templates, _ = gen_bank_stochastic(
                 key,
-                self.density_max,
-                self.sampler,
-                self.amp,
-                self.Psi,
-                self.fs,
-                self.Sn,
-                self.minimum_match,
+                1 - self.m_star,
                 self.eta,
+                self.effectualness_fun,
+                propose_template,
+                eff_pt_sampler,
+                r,
+                show_progress,
             )
-            self.templates = templates
-            self.n_templates = templates.shape[0]
+            self.n_templates = len(self.templates)
 
-    def calculate_bank_effectualness(
-        self,
-        key: jnp.ndarray,
-        n: int,
+    def calc_bank_effectualness(
+        self, key: jnp.ndarray, n: int, show_progress: bool = True
     ):
         """
         Computes effectualnesses for a sample of parameter points, adds the
@@ -201,25 +188,23 @@ class Bank:
         estimate ``eta``. The estimate of ``eta`` and the associated error are
         accessible through the ``eta_est`` and ``eta_est_err`` properties.
 
-        The points are sampled following the metric volume i.e. using the same
-        rejection sampling used to make the bank
+        The points are sampled following the metric density.
         """
-        effs, eff_pts, eta, eta_err = get_bank_effectualness(
+        eff_pt_sampler = jax.jit(self.gen_template_rejection)
+        (
+            self.effectualnesses,
+            self.effectualness_points,
+            self.eta_est,
+            self.eta_est_err,
+        ) = get_bank_effectualness(
             key,
+            1 - self.m_star,
             self.templates,
-            self.amp,
-            self.Psi,
-            self.fs,
-            self.Sn,
-            self.minimum_match,
+            self.effectualness_fun,
+            eff_pt_sampler,
             n,
-            base_dist=self.sampler,
-            density_max=self.density_max,
+            show_progress,
         )
-        self.effectualnesses = effs
-        self.effectualness_points = eff_pts
-        self._eta_est = eta
-        self._eta_est_err = eta_err
 
     def save(self, path: str = ""):
         """
@@ -238,12 +223,13 @@ class Bank:
         sampler: Callable[[jnp.ndarray, int], jnp.ndarray],
     ):
         """
-        Loads template bank non-function attributes from a npz file.
+        Loads template bank's non-function attributes from a npz file.
         """
         d = jnp.load(path, allow_pickle=True)["bank"].item()
         if d.keys() != cls.provided_vars | cls.computed_vars:
             raise ValueError("missing or extra keys in bank file")
 
+        # Instantiate with provided variables and functions
         fn_kwargs = {
             "amp": amp,
             "Psi": Psi,
@@ -252,6 +238,7 @@ class Bank:
         }
         bank = cls(**{**fn_kwargs, **{name: d[name] for name in cls.provided_vars}})
 
+        # Set computed variables
         for name in cls.computed_vars:
             setattr(bank, name, d[name])
 
