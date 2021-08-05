@@ -10,19 +10,6 @@ from tqdm.auto import tqdm
 from .constants import C, G
 
 
-def n_eff_pts(eta, r: float = 1):
-    """
-    Gets number of `eff_pts` to use during bank generation. This is computed by
-    setting
-
-        p(n_eff_pts | > eta) / p(n_eff_pts | < eta) > r,
-
-    where the likelihoods are those for n_eff_pts being within a minimum match
-    threshold of a template.
-    """
-    return jnp.ceil(jnp.log(1 / (1 + r)) / jnp.log(eta) - 1).astype(int)
-
-
 def ms_to_Mc_eta(m):
     m1, m2 = m
     return (m1 * m2) ** (3 / 5) / (m1 + m2) ** (1 / 5), m1 * m2 / (m1 + m2) ** 2
@@ -219,7 +206,7 @@ def gen_bank_random(
     base_dist: Callable[[jnp.ndarray, int], jnp.ndarray],
     density_fun: Callable[[jnp.ndarray], jnp.ndarray],
     eff_pt_sampler: Callable[[jnp.ndarray], jnp.ndarray] = None,
-    r: float = 3,
+    n_eff: int = 1000,
     show_progress: bool = True,
 ) -> Tuple[jnp.ndarray, jnp.ndarray]:
     """
@@ -232,8 +219,6 @@ def gen_bank_random(
     - density_fun: density for rejection sampling. Must be jit-able.
     - eff_pt_sampler: sampler for effectualness points. Need not be jit-able.
       If None, the template rejection sampler will be used.
-    - r: likelihood ratio p(> eta | n_eff_pts) / p(< eta | n_eff_pts) for
-      setting the number of effectualness points.
 
     Reference: https://arxiv.org/abs/0809.5223
     """
@@ -245,7 +230,6 @@ def gen_bank_random(
         eff_pt_sampler = gen_template
 
     # Generate points for effectualness monitoring
-    n_eff = n_eff_pts(eta, r)
     key, subkey = random.split(key)
     eff_pts = jnp.array([eff_pt_sampler(k) for k in random.split(subkey, n_eff)])
     effs = jnp.zeros(n_eff)
@@ -261,8 +245,9 @@ def gen_bank_random(
 
     # Fill the bank!
     templates = []
-    with tqdm(total=int(n_eff)) if show_progress else nullcontext() as pbar:
-        while n_covered < n_eff:
+    n_ko = int(jnp.ceil(n_eff * eta))
+    with tqdm(total=n_ko) if show_progress else nullcontext() as pbar:
+        while n_covered < n_ko:
             # Make template
             key, key_template = random.split(key)
             template = gen_template(key_template)
@@ -288,7 +273,7 @@ def gen_bank_stochastic(
     effectualness_fun: Callable[[jnp.ndarray, jnp.ndarray], jnp.ndarray],
     propose_template: Callable[[jnp.ndarray], jnp.ndarray],
     eff_pt_sampler: Callable[[jnp.ndarray], jnp.ndarray],
-    r: float = 3,
+    n_eff: int = 1000,
     show_progress: bool = True,
     n_acc_monitoring: int = 1,  # number of iterations for acc rate moving average
 ) -> Tuple[jnp.ndarray, jnp.ndarray]:
@@ -305,7 +290,6 @@ def gen_bank_stochastic(
     effectualness_fun = jax.jit(effectualness_fun)
 
     # Generate points for effectualness monitoring
-    n_eff = n_eff_pts(eta, r)
     key, subkey = random.split(key)
     eff_pts = jnp.array([eff_pt_sampler(k) for k in random.split(subkey, n_eff)])
     effs = jnp.zeros(n_eff)
@@ -330,8 +314,9 @@ def gen_bank_stochastic(
     templates = [propose_template(subkey)]
     n_proposals = 1
     acc_rates = []
-    with tqdm(total=int(n_eff)) if show_progress else nullcontext() as pbar:
-        while n_covered < n_eff:
+    n_ko = int(jnp.ceil(n_eff * eta))
+    with tqdm(total=n_ko) if show_progress else nullcontext() as pbar:
+        while n_covered < n_ko:
             # Make a template
             n_proposal_it = 0
             while True:

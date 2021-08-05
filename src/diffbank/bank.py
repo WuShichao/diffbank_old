@@ -138,7 +138,7 @@ class Bank:
         self,
         key: jnp.ndarray,
         method="random",
-        r: float = 3,
+        n_eff: int = 1000,
         show_progress: bool = True,
     ):
         """
@@ -160,7 +160,7 @@ class Bank:
                 self.density_max,
                 self.sampler,
                 self.density_fun,
-                r=r,
+                n_eff=n_eff,
                 show_progress=show_progress,
             )
             self.n_templates = len(self.templates)
@@ -174,8 +174,8 @@ class Bank:
                 self.effectualness_fun,
                 propose_template,
                 eff_pt_sampler,
-                r,
-                show_progress,
+                n_eff=n_eff,
+                show_progress=show_progress,
             )
             self.n_templates = len(self.templates)
 
