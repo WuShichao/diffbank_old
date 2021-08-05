@@ -91,7 +91,7 @@ def test_random():
     for kind in ["random", "stochastic"]:
         print(f"Testing {kind} bank")
         key, subkey = random.split(key)
-        bank.fill_bank(subkey, kind, r=0.1)  # coarse bank
+        bank.fill_bank(subkey, kind)  # coarse bank
         assert len(bank.templates) == bank.n_templates
 
         # Make sure templates are in bounds
