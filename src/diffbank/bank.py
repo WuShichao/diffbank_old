@@ -140,11 +140,6 @@ class Bank:
         method="random",
         n_eff: int = 1000,
         show_progress: bool = True,
-<<<<<<< HEAD
-        method="eff_points",
-        r: float = 3,
-=======
->>>>>>> dev-stochastic
     ):
         """
         Fills the bank with the required number of templates. See docs for
