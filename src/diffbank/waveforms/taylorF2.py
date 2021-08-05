@@ -12,7 +12,7 @@ def Psi(f: jnp.ndarray, theta: jnp.ndarray) -> jnp.ndarray:
     phase (array): Phase of the GW as a function of frequency
     """
 
-    mass1, mass2, chi_1, chi_2 = theta
+    m1, m2, chi1, chi2 = theta
     # (
     #     Mt,
     #     eta,
@@ -20,8 +20,8 @@ def Psi(f: jnp.ndarray, theta: jnp.ndarray) -> jnp.ndarray:
     #     chi_2,
     # ) = theta
 
-    Mt = mass1 + mass2
-    eta = mass1 * mass2 / (mass1 + mass2) ** 2
+    Mt = m1 + m2
+    eta = m1 * m2 / (m1 + m2) ** 2
 
     kappa1 = 1.0
     kappa2 = 1.0
@@ -41,8 +41,8 @@ def Psi(f: jnp.ndarray, theta: jnp.ndarray) -> jnp.ndarray:
     # chi_1 = jnp.array([spin1x, spin1y, spin1z])
     # chi_2 = jnp.array([spin2x, spin2y, spin2z])
 
-    chi_s = 0.5 * (chi_1 + chi_2)
-    chi_a = 0.5 * (chi_1 - chi_2)
+    chi_s = 0.5 * (chi1 + chi2)
+    chi_a = 0.5 * (chi1 - chi2)
     k_s = 0.5 * (kappa1 + kappa2)
     k_a = 0.5 * (kappa1 - kappa2)
     lambda1 = 1.0
@@ -224,14 +224,19 @@ def Psi(f: jnp.ndarray, theta: jnp.ndarray) -> jnp.ndarray:
     return 3.0 / 128.0 / eta / v5 * (psi_NS + psi_S)
 
 
-def Amp(f: jnp.ndarray, theta: jnp.ndarray) -> jnp.ndarray:
+def amp(f: jnp.ndarray, theta: jnp.ndarray) -> jnp.ndarray:
     """
-    Computes the Taylor F2 Frequency domain strain waveform with non-standard spin induced quadrupoole moment for object two
-    Note that this waveform assumes object 1 is a BH therefore uses the chi*M_total relation to find C
-    Note that this waveform also assumes that object one is the more massive. Therefore the more massive object is always considered a BH
+    Computes the Taylor F2 Frequency domain strain waveform with non-standard
+    spin induced quadrupoole moment for object two.
+
+    Note that this waveform assumes object 1 is a BH and therefore uses the
+    chi * M_total relation to find C
+
+    Note that this waveform also assumes that object one is the more massive.
+    Therefore the more massive object is always considered a BH
+
     Returns:
-    --------
-    Strain (array):
+      Strain (array):
     """
     # (
     #     th0,
@@ -254,10 +259,10 @@ def Amp(f: jnp.ndarray, theta: jnp.ndarray) -> jnp.ndarray:
     #     _,
     # ) = theta
 
-    mass1, mass2, _, _ = theta
+    m1, m2, _, _ = theta
 
-    Mt = mass1 + mass2
-    eta = mass1 * mass2 / (mass1 + mass2) ** 2
+    Mt = m1 + m2
+    eta = m1 * m2 / (m1 + m2) ** 2
     distance = 1.0
     pre = 3.6686934875530996e-19  # (GN*Msun/c^3)^(5/6)/Hz^(7/6)*c/Mpc/sec
     Mchirp = Mt * eta ** 0.6
