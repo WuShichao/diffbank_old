@@ -15,7 +15,7 @@ from .constants import C, G
 from .metric import get_density, get_g
 
 
-def n_eff_pts(eta, r: float = 1):
+def n_eff_pts(eta, r: float = 4):
     """
     Gets number of `eff_pts` to use during bank generation. This is computed by
     setting
@@ -147,7 +147,6 @@ def get_template_frac_in_bounds(
     in_bounds = jnp.concatenate((jnp.array([1.]), jax.lax.map(is_in_bounds, ellipse_samples)))
     return in_bounds.mean(), in_bounds.std() / jnp.sqrt(n + 1)
 
-
 def gen_template_rejection(
     key,
     density_max,
@@ -219,7 +218,7 @@ def gen_bank_effpoints(
     eta: float,
     show_progress: bool = True,
     eff_pt_sampler: Optional[Callable[[jnp.ndarray], jnp.ndarray]] = None,
-    r: float = 1,
+    r: float = 3,
     is_in_bounds: Optional[Callable[[jnp.ndarray], jnp.ndarray]] = None,
     n_fib: int = 1000,
 ) -> jnp.ndarray:
@@ -395,7 +394,7 @@ def get_bank_effectualness(
                 "must provide base_dist and density_max to sample points with "
                 "density sqrt(|g|)"
             )
-        density_fun = lambda theta: get_density(theta, amp, Psi, fs, Sn)
+        density_fun = lambda _, theta: get_density(theta, amp, Psi, fs, Sn)
         eff_pt_sampler = jax.jit(
             lambda key: gen_template_rejection(key, density_max, density_fun, base_dist)  # type: ignore
         )

@@ -152,7 +152,7 @@ class Bank:
         key: jnp.ndarray,
         show_progress: bool = True,
         method="eff_points",
-        r: float = 1,
+        r: float = 3,
     ):
         """
         Fills the bank with the required number of templates. See docs for
