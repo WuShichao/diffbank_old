@@ -23,9 +23,9 @@ def test_n_eff_pts():
 
 
 def test_eff(key):
-    minimum_match = 0.95
-    eta = 0.99
-    fs = jnp.linspace(20.0, 2000.0, 300)
+    minimum_match = 0.9
+    eta = 0.9
+    fs = jnp.linspace(20.0, 2000.0, 1000)
     m_range = (2.0, 3.0)
     sampler = get_m1_m2_sampler(m_range, m_range)
 
@@ -40,17 +40,42 @@ def test_eff(key):
         name="testing",
     )
 
-    bank.density_max = jnp.array(bank.get_density(jnp.array([m_range[0], m_range[0]])))
+    bank.density_max = jnp.array(bank.density_fun(jnp.array([m_range[0], m_range[0]])))
+
+    # key, subkey = random.split(key)
+    # bank.fill_bank(subkey, method="stochastic")
+    # # bank.fill_bank(subkey)
+    # # print(bank.templates)
+    # plt.figure(figsize=(7, 5))
+    # plt.scatter(bank.templates[:, 0], bank.templates[:, 1], s=1)
+    # plt.xlabel("m_1")
+    # plt.ylabel("m_2")
+    # plt.savefig("figures/test_template_placement_stochastic.pdf", bbox_inches="tight")
 
     key, subkey = random.split(key)
-    bank.fill_bank(subkey, method="stochastic")
-    # bank.fill_bank(subkey)
-    # print(bank.templates)
-    plt.figure(figsize=(7, 5))
-    plt.scatter(bank.templates[:, 0], bank.templates[:, 1], s=1)
-    plt.xlabel("m_1")
-    plt.ylabel("m_2")
-    plt.savefig("figures/test_template_placement_stochastic.pdf", bbox_inches="tight")
+    bank.fill_bank(subkey, show_progress=True)
+    print(minimum_match)
+    print(bank.n_templates)
+
+    key, subkey = random.split(key)
+    bank.fill_bank(subkey, show_progress=True)
+    print(minimum_match)
+    print(bank.n_templates)
+
+    key, subkey = random.split(key)
+    bank.fill_bank(subkey, show_progress=True)
+    print(minimum_match)
+    print(bank.n_templates)
+
+    key, subkey = random.split(key)
+    bank.fill_bank(subkey, show_progress=True)
+    print(minimum_match)
+    print(bank.n_templates)
+
+    key, subkey = random.split(key)
+    bank.fill_bank(subkey, show_progress=True)
+    print(minimum_match)
+    print(bank.n_templates)
 
     # key, subkey = random.split(key)
     # N = 1000

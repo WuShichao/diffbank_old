@@ -3,11 +3,13 @@ import time
 from diffbank.bank import Bank
 import jax.numpy as jnp
 from jax import random, jit
+from typing import Callable
 
 from diffbank.waveforms.threePN_simple import amp, Psi
 
 # from diffbank.waveforms.twoPN_simple import amp, Psi
-from diffbank.utils import get_M_eta_sampler, Sn_func
+from diffbank.utils import get_M_eta_sampler
+from diffbank.noise import Sn_aLIGO as Sn_func
 from diffbank.metric import get_metric_ellipse
 import matplotlib.pyplot as plt
 
@@ -54,32 +56,18 @@ def gen_effectualness():
         fs,
         Sn_func,
         sampler,
-        naive_vol=vol,
         m_star=1 - mismatch,
         eta=eta,
-        is_in_bounds=is_in_bounds,
         name="3PN",
     )
 
     bank.density_max = jnp.array(
-        bank.get_density(jnp.array([M_range[0], eta_range[0]]))
+        bank.density_fun(jnp.array([M_range[0], eta_range[0]]))
     )
-
-    key, subkey = random.split(key)
-    bank.compute_template_frac_in_bounds(subkey, 1000, 10)
-    print(
-        f"{bank.frac_in_bounds * 100:.2f} +/- {bank.frac_in_bounds_err * 100:.2f} % "
-        "of template ellipses lies in bounds"
-    )
-
-    key, subkey = random.split(key)
-    bank.compute_n_templates(subkey, 1000)
-    assert bank.n_templates > 0 and bank.n_templates < 1e5
-    print(f"{bank.n_templates} +/- {bank.n_templates_err} templates required")
 
     t0 = time.time()
     key, subkey = random.split(key)
-    bank.fill_bank(subkey)
+    bank.fill_bank(subkey, n_eff=500)
     assert len(bank.templates) == bank.n_templates
     t1 = time.time()
     total = t1 - t0
@@ -89,7 +77,7 @@ def gen_effectualness():
     # Finally we can test the effectualness and save
     print("Computing effectualness")
     key, subkey = random.split(key)
-    bank.compute_effectualnesses(subkey, 1000)
+    bank.calc_bank_effectualness(subkey, 1000)
     bank.save()
 
 
@@ -117,4 +105,4 @@ def check_metric_ellipse():
 
 if __name__ == "__main__":
     gen_effectualness()
-    # check_metric_ellipse()
+    check_metric_ellipse()
