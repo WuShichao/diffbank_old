@@ -10,7 +10,7 @@ from ..utils import get_f_isco, ms_to_Mc_eta
 TaylorF2ReducedSpin waveform, in terms of the dimensionless chirp times (th0,
 th3, th3S).
 
-See https://arxiv.org/abs/1210.6666 for details.
+Reference: Ajith et al 2014, https://arxiv.org/abs/1210.6666
 """
 
 

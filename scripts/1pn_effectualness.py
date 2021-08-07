@@ -1,4 +1,5 @@
 from math import pi
+from typing import Callable, Tuple
 
 import click
 import matplotlib.pyplot as plt
@@ -33,7 +34,13 @@ def phys_to_th(phys: jnp.ndarray) -> jnp.ndarray:
     return jnp.stack([tau1, tau2])
 
 
-def get_th_boundary_interps(m_min, m_max, n=200):
+def get_th_boundary_interps(
+    m_min: float, m_max: float, n: int = 200
+) -> Tuple[
+    Tuple[float, float],
+    Callable[[jnp.ndarray], jnp.ndarray],
+    Callable[[jnp.ndarray], jnp.ndarray],
+]:
     """
     Given a range of BH masses, returns corresponding range of tau1 and
     interpolators for the minimum and maximum corresponding values of tau2.
@@ -72,7 +79,7 @@ tau1_range, tau2_interp_low, tau2_interp_high = get_th_boundary_interps(*m_range
 tau2_range = (tau2_interp_low(tau1_range[0]), tau2_interp_high(tau1_range[1]))
 
 
-def propose(key, n):
+def propose(key: jnp.ndarray, n: int) -> jnp.ndarray:
     """
     Proposal distribution for tau rejection sampling.
     """
@@ -102,14 +109,14 @@ def accept(taus: jnp.ndarray) -> jnp.ndarray:
     )
 
 
-def tau_sampler(key, n):
+def tau_sampler(key: jnp.ndarray, n: int) -> jnp.ndarray:
     """
     Rejection sampler for tau.
     """
     return gen_templates_rejection(key, jnp.array(1.0), n, accept, propose)
 
 
-def Sn_LIGO(f):
+def Sn_LIGO(f: jnp.ndarray) -> jnp.ndarray:
     """
     LIGO noise curve.
     """
@@ -118,11 +125,11 @@ def Sn_LIGO(f):
     )
 
 
-def amp(f, _):
+def amp(f: jnp.ndarray, _) -> jnp.ndarray:
     return f ** (-7 / 6)
 
 
-def Psi(f, theta):
+def Psi(f: jnp.ndarray, theta: jnp.ndarray) -> jnp.ndarray:
     """
     1PN phase.
     """
@@ -133,21 +140,10 @@ def Psi(f, theta):
     )
 
 
-def get_bank(key):
+def get_bank(key: jnp.ndarray) -> Bank:
     """
     Returns a filled bank.
     """
-    naive_vol_key, frac_ib_key, n_templates_key, fill_key = random.split(key, 4)
-
-    # Estimate naive tau volume to within 10%
-    proposals = propose(naive_vol_key, 100000)
-    proposal_vol = (tau1_range[1] - tau1_range[0]) * (tau2_range[1] - tau2_range[0])
-    in_bounds = accept(proposals)
-    naive_vol = in_bounds.mean() * proposal_vol
-    naive_vol_err = in_bounds.std() * proposal_vol / jnp.sqrt(len(proposals))
-    print(f"Naive parameter space volume: {naive_vol:.6f} +/- {naive_vol_err:.6f}")
-    assert naive_vol_err / naive_vol < 0.1
-
     # Configure bank
     fs = jnp.linspace(f_s, 10000, 3000)
     mm = 0.95
@@ -158,32 +154,21 @@ def get_bank(key):
         Psi,
         fs,
         Sn_LIGO,
-        tau_sampler,
-        naive_vol,
         m_star,
         eta,
-        accept,
-        "owen",
-        naive_vol_err,
+        sample_base=tau_sampler,
+        name="owen",
     )
 
     # Metric is constant, so can just compute density at any point
-    bank.density_max = bank.get_density(tau_sampler(naive_vol_key, 1)[0])
-    bank.compute_template_frac_in_bounds(frac_ib_key, 100000, 20)
-    print(
-        f"{bank.frac_in_bounds * 100:.3f} +/- {bank.frac_in_bounds_err * 100:.3f} % "
-        "of the average template ellipse's volume is in bounds"
-    )
-    bank.compute_n_templates(n_templates_key, 5)
-    print(f"{bank.n_templates} +/- {bank.n_templates_err:.2f} templates required")
-    print("Filling the bank")
-    bank.fill_bank(fill_key)
-    print(f"Done: {bank}")
+    print(f"Filling {bank}")
+    bank.fill_bank(key)
+    print(f"Done")
 
     return bank
 
 
-def plot_bank(bank, seed):
+def plot_bank(bank: Bank, seed: jnp.ndarray):
     """
     Plot template positions and tau space boundaries.
     """
@@ -215,19 +200,19 @@ def plot_bank(bank, seed):
     plt.close()
 
 
-def plot_effectualnesses(key, bank, seed, n=250):
+def plot_effectualnesses(key: jnp.ndarray, bank: Bank, seed: jnp.ndarray, n: int = 250):
     """
     Histogram effectualnesses for n signal injections sampled using parameter
     space metric density.
     """
     # Sample signal injections from template bank
-    bank.compute_effectualnesses(key, n)  # slow
+    bank.calc_bank_effectualness(key, n)  # slow
 
     plt.figure(figsize=(8, 3.5))
 
     plt.subplot(1, 2, 1)
     plt.hist(bank.effectualnesses)  # , bins=50)
-    plt.axvline(bank.minimum_match, color="r")
+    plt.axvline(1 - bank.m_star, color="r")
     plt.xlabel("Effectualness")
     plt.ylabel("Frequency")
 
@@ -264,7 +249,7 @@ def plot_effectualnesses(key, bank, seed, n=250):
 
 @click.command()
 @click.option("--seed", type=int, help="PRNG seed")
-def main(seed):
+def main(seed: int):
     key = random.PRNGKey(seed)
     bank_key, eff_key = random.split(key)
 

@@ -5,7 +5,7 @@ from typing import Callable, Tuple
 import jax
 from jax import random
 import jax.numpy as jnp
-from tqdm.auto import tqdm
+from tqdm.auto import tqdm, trange
 
 from .constants import C, G
 
@@ -132,25 +132,115 @@ def get_template_frac_in_bounds(
     return in_bounds.mean(), in_bounds.std() / jnp.sqrt(n + 1)
 
 
+def est_ratio_max(
+    key,
+    density_fun: Callable[[jnp.ndarray], jnp.ndarray],
+    sample_base: Callable[[jnp.ndarray, int], jnp.ndarray],
+    density_fun_base: Callable[[jnp.ndarray], jnp.ndarray] = lambda _: 1.0,
+    n_iter: int = 1000,
+    n_init: int = 200,
+    show_progress: bool = True,
+) -> Tuple[jnp.ndarray, jnp.ndarray]:
+    """
+    Estimate maximum ratio of target to base density using empirical supremum
+    rejection sampling.
+
+    Arguments
+    - density_fun: density for rejection sampling. Must be jit-able.
+    - sample_base: distribution for rejection sampling. Takes a key and number
+      of samples. Must be jit-able.
+    - density_fun_base: (possibly unnormalized) density for `sample_base`. Must
+      be jit-able.
+    - n_iter: number of iterations of rejection sampling to use.
+    - n_init: as an initial guess, the maximum ratio will be computed over
+      `n_init` points sampled from `sample_base`.
+
+    Returns
+    - The estimated maximum ratio and point at which it was attained.
+
+    Reference: https://bookdown.org/rdpeng/advstatcomp/rejection-sampling.html
+    """
+    # Get initial guess for ratio_max by computing it at random points
+    key, subkey = random.split(key)
+    thetas = sample_base(subkey, n_init)
+    densities = jax.lax.map(density_fun, thetas)
+    densities_base = jax.lax.map(density_fun_base, thetas)
+    ratios = densities / densities_base
+    idx_max = jnp.argmax(ratios)
+    ratio_max = ratios[idx_max]
+    theta_max = thetas[idx_max]
+
+    @jax.jit
+    def rejection_sample(key, ratio_max):
+        """Generate ratio and point by rejection sampling."""
+
+        def cond_fun(val):
+            cond_key, ratio = val[1], val[2]
+            u = random.uniform(cond_key)
+            return u >= ratio / ratio_max
+
+        def body_fun(val):
+            key = val[0]
+            key, theta_key, cond_key = random.split(key, 3)
+            theta = sample_base(theta_key, 1)[0]
+            ratio = density_fun(theta) / density_fun_base(theta)
+            return (key, cond_key, ratio, theta)
+
+        # Only first element of init_val matters
+        init_val = body_fun((key, None, None, None))
+        # Get max ratio and point at which it is attained
+        _, _, ratio, theta = jax.lax.while_loop(cond_fun, body_fun, init_val)
+        return ratio, theta
+
+    iterator = trange(n_iter) if show_progress else range(n_iter)
+    for _ in iterator:
+        key, subkey = random.split(key)
+        ratio, theta = rejection_sample(subkey, ratio_max)
+
+        if ratio > ratio_max:
+            ratio_max = ratio
+            theta_max = theta
+
+            if show_progress:
+                iterator.set_postfix_str(f"{ratio:.3f} at {theta}")  # type: ignore
+
+    if show_progress:
+        iterator.close()  # type: ignore
+
+    return ratio_max, theta_max
+
+
 def gen_template_rejection(
     key,
-    density_max,
+    ratio_max,
     density_fun: Callable[[jnp.ndarray], jnp.ndarray],
-    base_dist: Callable[[jnp.ndarray, int], jnp.ndarray],
+    sample_base: Callable[[jnp.ndarray, int], jnp.ndarray],
+    density_fun_base: Callable[[jnp.ndarray], jnp.ndarray] = lambda _: 1.0,
 ) -> jnp.ndarray:
     """
     Generates a single template using rejection sampling.
+
+    Arguments
+    - ratio_max: maximum value of the ratio of density_fun to density_fun_base.
+    - density_fun: density for rejection sampling. Must be jit-able.
+    - sample_base: distribution for rejection sampling. Takes a key and number
+      of samples. Must be jit-able.
+    - density_fun_base: (possibly unnormalized) density for `sample_base`. Must
+      be jit-able.
+
+    Returns
+    - A single sample from the distribution with density `density_fun`.
     """
 
     def cond_fun(val):
         cond_key, theta = val[1], val[2]
         u = random.uniform(cond_key)
-        return u >= density_fun(theta) / density_max
+        return u >= density_fun(theta) / (ratio_max * density_fun_base(theta))
 
     def body_fun(val):
         key = val[0]
         key, theta_key, cond_key = random.split(key, 3)
-        theta = base_dist(theta_key, 1)[0]
+        theta = sample_base(theta_key, 1)[0]
         return (key, cond_key, theta)  # new val
 
     # Only first element of init_val matters
@@ -162,16 +252,28 @@ def gen_template_rejection(
 def gen_templates_rejection(
     key,
     n_templates,
-    density_max,
+    ratio_max,
     density_fun: Callable[[jnp.ndarray], jnp.ndarray],
-    sampler,
+    sample_base: Callable[[jnp.ndarray, int], jnp.ndarray],
+    density_fun_base: Callable[[jnp.ndarray], jnp.ndarray] = lambda _: 1.0,
 ) -> jnp.ndarray:
     """
     Generates a bank with n_templates samples using rejection sampling.
-    TODO: add tqdm somehow?
+
+    Arguments
+    - ratio_max: maximum value of the ratio of density_fun to density_fun_base.
+    - density_fun: density for rejection sampling. Must be jit-able.
+    - sample_base: distribution for rejection sampling. Takes a key and number
+      of samples. Must be jit-able.
+    - density_fun_base: (possibly unnormalized) density for `sample_base`. Must
+      be jit-able.
+
+    TODO: add tqdm
     """
     keys = random.split(key, n_templates)
-    f = lambda key: gen_template_rejection(key, density_max, density_fun, sampler)
+    f = lambda key: gen_template_rejection(
+        key, ratio_max, density_fun, sample_base, density_fun_base
+    )
     return jax.lax.map(f, keys)
 
 
@@ -202,9 +304,10 @@ def gen_bank_random(
     minimum_match: float,
     eta: float,
     effectualness_fun: Callable[[jnp.ndarray, jnp.ndarray], jnp.ndarray],
-    density_max: jnp.ndarray,
-    base_dist: Callable[[jnp.ndarray, int], jnp.ndarray],
+    ratio_max: jnp.ndarray,
     density_fun: Callable[[jnp.ndarray], jnp.ndarray],
+    sample_base: Callable[[jnp.ndarray, int], jnp.ndarray],
+    density_fun_base: Callable[[jnp.ndarray], jnp.ndarray] = lambda _: 1.0,
     eff_pt_sampler: Callable[[jnp.ndarray], jnp.ndarray] = None,
     n_eff: int = 1000,
     show_progress: bool = True,
@@ -213,18 +316,22 @@ def gen_bank_random(
     Arguments
     - effectualness_fun: function computing effectualness between points. Must
       be jit-able.
-    - density_max: maximum value of density function.
-    - base_dist: distribution for rejection sampling. Takes a key and number of
-      samples.
+    - ratio_max: maximum value of the ratio of density_fun to density_fun_base.
     - density_fun: density for rejection sampling. Must be jit-able.
+    - sample_base: distribution for rejection sampling. Takes a key and number
+      of samples. Must be jit-able.
+    - density_fun_base: (possibly unnormalized) density for base sampler. Must
+      be jit-able.
     - eff_pt_sampler: sampler for effectualness points. Need not be jit-able.
       If None, the template rejection sampler will be used.
 
-    Reference: https://arxiv.org/abs/0809.5223
+    Reference: Messenger, Prix & Papa 2008, https://arxiv.org/abs/0809.5223
     """
     # Function for rejection sampling of templates
     gen_template = jax.jit(
-        lambda key: gen_template_rejection(key, density_max, density_fun, base_dist)
+        lambda key: gen_template_rejection(
+            key, ratio_max, density_fun, sample_base, density_fun_base
+        )
     )
     if eff_pt_sampler is None:
         eff_pt_sampler = gen_template
