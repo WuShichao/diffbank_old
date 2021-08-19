@@ -495,7 +495,8 @@ def get_bank_effectualness(
             eta_est = eta_prev + (x - eta_prev) / n
             M_2 = M_2 + (x - eta_prev) * (x - eta_est)
             if n > 1:
-                eta_est_err = jnp.sqrt(M_2 / (n - 1))
+                # Standard deviation of the mean
+                eta_est_err = jnp.sqrt(M_2 / (n - 1)) / jnp.sqrt(n)
 
             if show_progress:  # pbar is a tqdm
                 pbar.set_postfix_str(f"eta = {eta_est:.3f} +/- {eta_est_err:.3f}")  # type: ignore
