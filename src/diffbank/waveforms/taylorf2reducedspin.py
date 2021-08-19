@@ -50,7 +50,7 @@ def th_to_f_isco(theta, f_0=20.0):
     return get_f_isco(M)
 
 
-def get_th_boundary_interps(m_min, m_max, f_0=20.0, n=200):
+def get_th_boundary_interps(m_min, m_max, f_0=20.0, n=1000):
     """
     Given a range of BH masses, returns corresponding range of th0 and
     interpolators for the minimum and maximum corresponding values of th3.

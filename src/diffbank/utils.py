@@ -202,7 +202,7 @@ def est_ratio_max(
             theta_max = theta
 
             if show_progress:
-                iterator.set_postfix_str(f"{ratio:.3f} at {theta}")  # type: ignore
+                iterator.set_postfix_str(f"{ratio:.3e} at {theta}")  # type: ignore
 
     if show_progress:
         iterator.close()  # type: ignore

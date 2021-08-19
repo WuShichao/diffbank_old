@@ -12,19 +12,19 @@ from diffbank.waveforms.threePN_simple import Psi, amp
 Generate a 3PN bank.
 """
 
+minimum_match = 0.95
+m_star = 1 - minimum_match
+eta_star = 0.99
+fs = jnp.linspace(20.0, 2000.0, 1000)
+m_range = (1.4, 5.0)
+sampler = get_m1_m2_sampler(m_range, m_range)
+
 
 @click.command()
 @click.option("--seed", type=int, help="PRNG seed")
 @click.option("--kind", type=str, help="kind of bank ('random' or 'stochastic')")
 def run(seed, kind):
     key = random.PRNGKey(seed)
-
-    minimum_match = 0.95
-    m_star = 1 - minimum_match
-    eta_star = 0.99
-    fs = jnp.linspace(20.0, 2000.0, 1000)
-    m_range = (1.4, 5.0)
-    sampler = get_m1_m2_sampler(m_range, m_range)
 
     bank = Bank(
         amp, Psi, fs, Sn_aLIGO, m_star, eta_star, sampler, name=f"3pn-{kind}-{seed}"
