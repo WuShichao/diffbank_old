@@ -41,6 +41,7 @@ def run(seed, kind):
     # Fill bank
     key, subkey = random.split(key)
     bank.fill_bank(subkey, kind)
+    bank.save("banks/")
 
     # Get effectualnesses
     key, subkey = random.split(key)
