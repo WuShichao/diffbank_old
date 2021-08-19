@@ -47,7 +47,9 @@ def load_noise(name: str) -> Callable[[jnp.ndarray], jnp.ndarray]:
     path_context = pkg_resources.path(noise_resources, f"{name}.dat")
     with path_context as path:
         fs, Sns = np.loadtxt(path, unpack=True)
-    Sn = jax.jit(lambda f: jnp.interp(f, fs, Sns, 0, 0))
+
+    Sns = jax.ops.index_update(Sns, Sns == 0.0, jnp.inf)
+    Sn = jax.jit(lambda f: jnp.interp(f, fs, Sns, left=jnp.inf, right=jnp.inf))
     return Sn
 
 
