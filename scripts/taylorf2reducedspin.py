@@ -14,9 +14,16 @@ import jax.numpy as jnp
 """
 Generate a TaylorF2ReducedSpin bank for comparison with Ajith et al 2014,
 https://arxiv.org/abs/1210.6666.
-
-Note: this is not checking that chi is in bounds correctly yet.
 """
+
+
+def get_M_tot(th0, th3):
+    M_chirp = 1 / (16 * pi * f_0) * (125 / (2 * th0 ** 3)) ** (1 / 5) * C ** 3 / G
+    eta = (16 * pi ** 5 / 25 * th0 ** 2 / th3 ** 5) ** (1 / 3)
+    q = (1 + jnp.sqrt(1 - 4 * eta) - 2 * eta) / (2 * eta)
+    m2 = (1 + q) ** (1 / 5) / q ** (3 / 5) * M_chirp
+    m1 = q * m2
+    return m1 + m2
 
 
 def get_th3S_max(th0, th3):
@@ -31,8 +38,8 @@ def get_th3S_max(th0, th3):
     m2 = (1 + q) ** (1 / 5) / q ** (3 / 5) * M_chirp
     m1 = q * m2
     delta = (m1 - m2) / (m1 + m2)
-    chi1_max = jnp.where(m1 > m_thresh, chi_bh_max, chi_ns_max)
-    chi2_max = jnp.where(m2 > m_thresh, chi_bh_max, chi_ns_max)
+    chi1_max = jnp.where(m1 > m_ns_thresh, chi_bh_max, chi_ns_max)
+    chi2_max = jnp.where(m2 > m_ns_thresh, chi_bh_max, chi_ns_max)
     chi_s_max = (chi1_max + chi2_max) / 2
     chi_a_max = (chi1_max - chi2_max) / 2
     chi_max = chi_s_max * (1 - 76 * eta / 113) + delta * chi_a_max
@@ -45,10 +52,13 @@ key = random.PRNGKey(100)
 minimum_match = 0.95
 m_star = 1 - minimum_match
 eta_star = 0.99
-fs = jnp.linspace(20.0, 2000.0, 1000)
+# Frequency spacing is roughly small enough for calculations to be accurate
+# enough
+fs = jnp.linspace(20.0, 2000.0, 500)
 f_0 = 20.0  # Hz
-m_range = (1.4 * MSUN, 20.0 * MSUN)
-m_thresh = 2.0 * MSUN
+m_range = (1 * MSUN, 20 * MSUN)
+m_ns_thresh = 2 * MSUN
+M_tot_max = m_range[0] + m_range[1]
 chi_bh_max = 0.98
 chi_ns_max = 0.4
 
@@ -66,13 +76,16 @@ th3S_max = get_th3S_max(th0_th3_max, th3_max)
 
 def is_in_bounds(theta: jnp.ndarray) -> jnp.ndarray:
     """
-    Checks if a point is in bounds.
+    Checks if a point is in bounds using the `th` values and total mass.
     """
     th0, th3, th3S = theta[..., 0], theta[..., 1], theta[..., 2]
     return jnp.logical_and(
         th3 > th3_interp_low(th0),
         jnp.logical_and(
-            th3 < th3_interp_high(th0), jnp.abs(th3S) < get_th3S_max(th0, th3)
+            th3 < th3_interp_high(th0),
+            jnp.logical_and(
+                jnp.abs(th3S) < get_th3S_max(th0, th3), get_M_tot(th0, th3) < M_tot_max
+            ),
         ),
     )
 
@@ -122,13 +135,13 @@ def run(seed, kind):
 
     # Get max density
     # NOTE: need to change if m_range changes!
-    th0s = jnp.linspace(10.5e3, 11e3, 500)
-    th3s = th3_interp_low(th0s) * 1.0001
+    th0s = jnp.linspace(1.0001 * th0_range[0], 0.9999 * th0_range[1], 500)
+    th3s = th3_interp_high(th0s) * 0.99999
     th3Ss = -get_th3S_max(th0s, th3s)
     boundary_densities = jax.lax.map(
         bank.density_fun, jnp.stack([th0s, th3s, th3Ss], -1)
     )
-    bank.ratio_max = boundary_densities.max()
+    bank.ratio_max = jnp.nanmax(boundary_densities)
 
     # Fill bank
     key, subkey = random.split(key)
