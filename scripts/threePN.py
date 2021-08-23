@@ -23,7 +23,10 @@ sampler = get_m1_m2_sampler(m_range, m_range)
 @click.command()
 @click.option("--seed", type=int, help="PRNG seed")
 @click.option("--kind", type=str, help="kind of bank ('random' or 'stochastic')")
-def run(seed, kind):
+@click.option(
+    "--n-eta", type=int, help="number of new points at which to compute effectualnesses"
+)
+def run(seed, kind, n_eta):
     key = random.PRNGKey(seed)
 
     bank = Bank(
@@ -45,7 +48,7 @@ def run(seed, kind):
 
     # Get effectualnesses
     key, subkey = random.split(key)
-    bank.calc_bank_effectualness(subkey, 500)
+    bank.calc_bank_effectualness(subkey, n_eta)
     bank.save("banks/")
 
 
