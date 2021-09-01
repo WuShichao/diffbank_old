@@ -115,7 +115,7 @@ def test_sampler(key):
     print(samples)
 
 
-def gen_4D_taylorf2bank(key):
+def gen_4D_taylorf2bank(key, seed, kind):
     minimum_match = 0.95
     eta = 0.99
     fs = jnp.linspace(f_l, f_u, N_fbins)
@@ -129,7 +129,11 @@ def gen_4D_taylorf2bank(key):
         1 - minimum_match,
         eta,
         sampler,
-        name="banks/taylorF2_O2_IAScomp",
+        name="banks/TaylorF2-%s-%i"
+        % (
+            kind,
+            seed,
+        ),
     )
 
     ############################
@@ -170,7 +174,7 @@ def gen_4D_taylorf2bank(key):
     ############################
 
     key, subkey = random.split(key)
-    bank.fill_bank(subkey)
+    bank.fill_bank(subkey, method=kind)
 
     # key, subkey = random.split(key)
     # N = 100
@@ -245,9 +249,10 @@ def check_saved_bank():
 
 @click.command()
 @click.option("--seed", type=int, help="PRNG seed")
-def main(seed):
+@click.option("--kind", type=str, help="Type of bank")
+def main(seed, kind):
     key = random.PRNGKey(seed)
-    gen_4D_taylorf2bank(key)
+    gen_4D_taylorf2bank(key, seed, kind)
     # test_sampler(key)
     # calc_number_templates(key)
     # check_saved_bank()
