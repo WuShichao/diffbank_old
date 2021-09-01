@@ -1,5 +1,5 @@
 from itertools import product
-from typing import Callable
+from typing import Callable, Union
 
 import click
 import matplotlib.pyplot as plt
@@ -29,8 +29,8 @@ Run with:
 
 
 def get_aLIGOZeroDetHighPower_interp(
-    f_0,
-    f_max=1024,
+    f_0: Union[float, jnp.ndarray],
+    f_max: Union[float, jnp.ndarray] = 1024,
 ) -> Callable[[jnp.ndarray], jnp.ndarray]:
     """
     Get interpolator for noise curve.
@@ -58,7 +58,7 @@ def get_aLIGOZeroDetHighPower_interp(
 @click.option("--n_m2s", type=int, default=90)
 @click.option("--n_th0s", type=int, default=200)
 @click.option("--n_th3s", type=int, default=190)
-def make_density_plot(fig_path, n_m1s, n_m2s, n_th0s, n_th3s):
+def make_density_plot(fig_path: str, n_m1s: int, n_m2s: int, n_th0s: int, n_th3s: int):
     # Table 1: global analysis configuration
     # Low-frequency cutoff
     f_0 = jnp.array(20.0)

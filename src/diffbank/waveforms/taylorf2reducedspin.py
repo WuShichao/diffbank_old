@@ -10,7 +10,7 @@ from ..utils import get_f_isco, ms_to_Mc_eta
 TaylorF2ReducedSpin waveform, in terms of the dimensionless chirp times (th0,
 th3, th3S).
 
-See https://arxiv.org/abs/1210.6666 for details.
+Reference: Ajith et al 2014, https://arxiv.org/abs/1210.6666
 """
 
 
@@ -50,7 +50,7 @@ def th_to_f_isco(theta, f_0=20.0):
     return get_f_isco(M)
 
 
-def get_th_boundary_interps(m_min, m_max, f_0=20.0, n=200):
+def get_th_boundary_interps(m_min, m_max, f_0=20.0, n=1000):
     """
     Given a range of BH masses, returns corresponding range of th0 and
     interpolators for the minimum and maximum corresponding values of th3.
