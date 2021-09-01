@@ -224,7 +224,7 @@ def Psi(f: jnp.ndarray, theta: jnp.ndarray) -> jnp.ndarray:
     return 3.0 / 128.0 / eta / v5 * (psi_NS + psi_S)
 
 
-def amp(f: jnp.ndarray, theta: jnp.ndarray) -> jnp.ndarray:
+def Amp(f: jnp.ndarray, theta: jnp.ndarray) -> jnp.ndarray:
     """
     Computes the Taylor F2 Frequency domain strain waveform with non-standard
     spin induced quadrupoole moment for object two.
