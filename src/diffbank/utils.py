@@ -348,7 +348,7 @@ def gen_bank_random(
         update = lambda ep: _update_uncovered_eff(
             ep["point"], ep["eff"], template, minimum_match, effectualness_fun
         )
-        return jax.lax.map(update, {"point": eff_pts, "eff": effs})
+        return jax.vmap(update)({"point": eff_pts, "eff": effs})
 
     # Fill the bank!
     templates = []
@@ -408,7 +408,7 @@ def gen_bank_stochastic(
         update = lambda ep: _update_uncovered_eff(
             ep["point"], ep["eff"], template, minimum_match, effectualness_fun
         )
-        return jax.lax.map(update, {"point": eff_pts, "eff": effs})
+        return jax.vmap(update)({"point": eff_pts, "eff": effs})
 
     # Returns True if point is far from all templates (ie, has a low
     # effectualness to the bank)
