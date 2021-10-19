@@ -4,13 +4,14 @@
 #SBATCH -N 1
 #SBATCH -p normal
 
-NPROC=`nproc --all`
-echo $NPROC
+# NBANKS=`nproc --all`
+NBANKS=16
+echo $NBANKS
 
-for i in $(seq 1 $(($NPROC - 1))); do
-	python3 taylorf2reducedspin.py --seed $(($i + 16)) --kind random &
+for i in $(seq 1 $NBANKS); do
+	python3 taylorf2reducedspin.py --seed $i --kind random &
 done
 
-# python3 taylorf2reducedspin.py --seed $NPROC --kind stochastic &
+# python3 taylorf2reducedspin.py --seed $NBANKS --kind stochastic &
 
 wait
