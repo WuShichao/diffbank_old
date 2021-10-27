@@ -1,8 +1,10 @@
 from math import pi
 import jax.numpy as jnp
+import numpy as np
 
 # from ..constants import C, G, MSUN
-
+J_np = np.load('/home/thomasedwards/LIGO_searches/diffbank/src/diffbank/waveforms/J_kappa6D.npy')
+J = jnp.array(J_np)
 
 def Psi(f: jnp.ndarray, theta: jnp.ndarray) -> jnp.ndarray:
     """
@@ -12,19 +14,12 @@ def Psi(f: jnp.ndarray, theta: jnp.ndarray) -> jnp.ndarray:
     phase (array): Phase of the GW as a function of frequency
     """
 
-    # m1, m2, chi1, chi2 = theta
-    (
-        Mt,
-        eta,
-        chi1,
-        chi2,
-    ) = theta
+    # m1, m2, chi1, chi2, kappa1, kappa2 = theta
+    theta_o = jnp.dot(J, theta)
+    Mt, eta, chi1, chi2, kappa1, kappa2 = theta_o
 
     # Mt = m1 + m2
     # eta = m1 * m2 / (m1 + m2) ** 2
-
-    kappa1 = 1.0
-    kappa2 = 1.0
 
     # Mt, eta, chi_1, chi_2, kappa1, kappa2 = theta
 
@@ -238,28 +233,9 @@ def Amp(f: jnp.ndarray, theta: jnp.ndarray) -> jnp.ndarray:
     Returns:
       Strain (array):
     """
-    # (
-    #     th0,
-    #     th3,
-    #     _,
-    #     _,
-    #     _,
-    #     _,
-    # ) = theta
-    # M_chirp = (
-    #     1 / (16 * pi * f[0]) * (125 / (2 * th0 ** 3)) ** (1 / 5) * C ** 3 / G
-    # ) / MSUN
-    # eta = (16 * pi ** 5 / 25 * th0 ** 2 / th3 ** 5) ** (1 / 3)
-    # Mt = M_chirp / eta ** (3 / 5)
-
-    (
-        Mt,
-        eta,
-        _,
-        _,
-    ) = theta
-
-    # m1, m2, _, _ = theta
+    theta_o = jnp.dot(J, theta)
+    Mt, eta, _, _, _, _ = theta_o
+    # m1, m2, _, _, _, _ = theta
 
     # Mt = m1 + m2
     # eta = m1 * m2 / (m1 + m2) ** 2

@@ -2,7 +2,8 @@ from math import pi
 import jax.numpy as jnp
 
 # from ..constants import C, G, MSUN
-
+J_np = np.load('/home/thomasedwards/LIGO_searches/diffbank/src/diffbank/waveforms/J_taylorF2.npy')
+J = jnp.array(J_np)
 
 def Psi(f: jnp.ndarray, theta: jnp.ndarray) -> jnp.ndarray:
     """
@@ -13,12 +14,9 @@ def Psi(f: jnp.ndarray, theta: jnp.ndarray) -> jnp.ndarray:
     """
 
     # m1, m2, chi1, chi2 = theta
-    (
-        Mt,
-        eta,
-        chi1,
-        chi2,
-    ) = theta
+    # Mt, eta, chi1, chi2 = theta
+    theta_o = jnp.dot(J, theta)
+    Mt, eta, chi1, chi2 = theta_o
 
     # Mt = m1 + m2
     # eta = m1 * m2 / (m1 + m2) ** 2
@@ -252,12 +250,9 @@ def Amp(f: jnp.ndarray, theta: jnp.ndarray) -> jnp.ndarray:
     # eta = (16 * pi ** 5 / 25 * th0 ** 2 / th3 ** 5) ** (1 / 3)
     # Mt = M_chirp / eta ** (3 / 5)
 
-    (
-        Mt,
-        eta,
-        _,
-        _,
-    ) = theta
+    # Mt, eta, chi1, chi2 = theta
+    theta_o = jnp.dot(J, theta)
+    Mt, eta, chi1, chi2 = theta_o
 
     # m1, m2, _, _ = theta
 
