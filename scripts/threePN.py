@@ -1,4 +1,5 @@
 import click
+import os
 from jax import random
 import jax.numpy as jnp
 from scipy.optimize import minimize_scalar
@@ -12,25 +13,42 @@ from diffbank.waveforms.threePN_simple import Psi, amp
 Generate a 3PN bank.
 """
 
-minimum_match = 0.95
-m_star = 1 - minimum_match
-eta_star = 0.99
-fs = jnp.linspace(20.0, 2000.0, 1000)
-m_range = (1.4, 5.0)
-sampler = get_m1_m2_sampler(m_range, m_range)
-
 
 @click.command()
 @click.option("--seed", type=int, help="PRNG seed")
 @click.option("--kind", type=str, help="kind of bank ('random' or 'stochastic')")
 @click.option(
-    "--n-eta", type=int, help="number of new points at which to compute effectualnesses"
+    "--n-eta",
+    default=500,
+    type=int,
+    help="number of new points at which to compute effectualnesses",
 )
-def run(seed, kind, n_eta):
+@click.option("--mm", default=0.95, help="minimum match")
+@click.option("--eta-star", default=0.99, help="eta*")
+@click.option("--n-eff", default=1000)
+@click.option(
+    "--subdir", default="", help="subdir in 'banks/' in which to save the bank"
+)
+def run(seed, kind, n_eta, mm, eta_star, n_eff, subdir):
+    savedir = os.path.join("banks", subdir)
+    os.makedirs(savedir, exist_ok=True)
+
     key = random.PRNGKey(seed)
+    m_star = 1 - mm
+
+    fs = jnp.linspace(20.0, 2000.0, 1000)
+    m_range = (1.4, 5.0)
+    sampler = get_m1_m2_sampler(m_range, m_range)
 
     bank = Bank(
-        amp, Psi, fs, Sn_aLIGO, m_star, eta_star, sampler, name=f"3pn-{kind}-{seed}"
+        amp,
+        Psi,
+        fs,
+        Sn_aLIGO,
+        m_star,
+        eta_star,
+        sampler,
+        name=f"3pn-{kind}-{seed}-mm={mm}-eta_star={eta_star}-n_eff={n_eff}",
     )
 
     # Get max density
@@ -43,13 +61,17 @@ def run(seed, kind, n_eta):
 
     # Fill bank
     key, subkey = random.split(key)
-    bank.fill_bank(subkey, kind)
-    bank.save("banks/")
+    bank.fill_bank(subkey, kind, n_eff)
+    bank.save(savedir)
+    print(f"Saved bank to {os.path.join(savedir, bank.name + '.npz')}")
 
     # Get effectualnesses
-    key, subkey = random.split(key)
-    bank.calc_bank_effectualness(subkey, n_eta)
-    bank.save("banks/")
+    if n_eta > 0:
+        key, subkey = random.split(key)
+        bank.calc_bank_effectualness(subkey, n_eta)
+        bank.save(savedir)
+    else:
+        print("Skipping effectualnesses calculation")
 
 
 if __name__ == "__main__":
