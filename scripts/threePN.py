@@ -1,5 +1,6 @@
 import click
 import os
+import jax
 from jax import random
 import jax.numpy as jnp
 from scipy.optimize import minimize_scalar
@@ -53,7 +54,7 @@ def run(seed, kind, n_eta, mm, eta_star, n_eff, subdir):
 
     # Get max density
     fun = lambda m1: -bank.density_fun(jnp.array([m1, m_range[0]]))
-    res = minimize_scalar(fun, bracket=m_range, bounds=m_range)
+    res = minimize_scalar(fun, bracket=m_range, bounds=m_range, method="bounded")
     assert res.success
     theta_dmax = jnp.array([res.x, m_range[0]])
     ratio_max = bank.density_fun(theta_dmax)
