@@ -1,0 +1,15 @@
+WARNING:absl:No GPU/TPU found, falling back to CPU. (Set TF_CPP_MIN_LOG_LEVEL=0 and rerun for more info.)
+Bank: 3pn-???-mm=0.95-eta_star=???-n_eff=???
+	p = 0.0021000000000000003 +/- 0.0003236966172205077
+WARNING:absl:No GPU/TPU found, falling back to CPU. (Set TF_CPP_MIN_LOG_LEVEL=0 and rerun for more info.)
+Bank: 3pn-???-mm=0.9-eta_star=???-n_eff=???
+	p = 0.004 +/- 0.00044631827208842803
+WARNING:absl:No GPU/TPU found, falling back to CPU. (Set TF_CPP_MIN_LOG_LEVEL=0 and rerun for more info.)
+Bank: 3pn-???-mm=0.85-eta_star=???-n_eff=???
+	p = 0.0058000000000000005 +/- 0.0005369525118667383
+WARNING:absl:No GPU/TPU found, falling back to CPU. (Set TF_CPP_MIN_LOG_LEVEL=0 and rerun for more info.)
+Bank: 3pn-???-mm=0.8-eta_star=???-n_eff=???
+	p = 0.010150000000000001 +/- 0.0007087657405659504
+WARNING:absl:No GPU/TPU found, falling back to CPU. (Set TF_CPP_MIN_LOG_LEVEL=0 and rerun for more info.)
+Bank: 3pn-???-mm=0.75-eta_star=???-n_eff=???
+	p = 0.00995 +/- 0.0007018189759475014
