@@ -27,11 +27,8 @@ Generate a 3PN bank.
 @click.option("--mm", default=0.95, help="minimum match")
 @click.option("--eta-star", default=0.99, help="eta*")
 @click.option("--n-eff", default=1000)
-@click.option(
-    "--subdir", default="", help="subdir in 'banks/' in which to save the bank"
-)
-def run(seed, kind, n_eta, mm, eta_star, n_eff, subdir):
-    savedir = os.path.join("banks", subdir)
+@click.option("--savedir", default="banks", help="directory in which to save the bank")
+def run(seed, kind, n_eta, mm, eta_star, n_eff, savedir):
     os.makedirs(savedir, exist_ok=True)
 
     key = random.PRNGKey(seed)
