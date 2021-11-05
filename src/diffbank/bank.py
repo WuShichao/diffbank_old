@@ -1,8 +1,9 @@
 import os
-from typing import Callable, Set, Tuple, Union
+from typing import Callable, Set, Tuple, Union, Optional
 
 import jax
 from jax import random
+from jax._src.prng import PRNGKeyArray
 import jax.numpy as jnp
 
 from .metric import get_density, get_g, get_gam
@@ -15,6 +16,8 @@ from .utils import (
     get_bank_effectualness,
     get_effectualness,
 )
+
+Array = jnp.ndarray
 
 
 class Bank:
@@ -45,14 +48,14 @@ class Bank:
 
     def __init__(
         self,
-        amp: Callable[[jnp.ndarray, jnp.ndarray], jnp.ndarray],
-        Psi: Callable[[jnp.ndarray, jnp.ndarray], jnp.ndarray],
-        fs: jnp.ndarray,
-        Sn: Callable[[jnp.ndarray], jnp.ndarray],
-        m_star: Union[float, jnp.ndarray],
-        eta: Union[float, jnp.ndarray],
-        sample_base: Callable[[jnp.ndarray, int], jnp.ndarray],
-        density_fun_base: Callable[[jnp.ndarray], jnp.ndarray] = lambda _: 1.0,
+        amp: Callable[[Array, Array], Array],
+        Psi: Callable[[Array, Array], Array],
+        fs: Array,
+        Sn: Callable[[Array], Array],
+        m_star: Union[float, Array],
+        eta: Union[float, Array],
+        sample_base: Callable[[PRNGKeyArray, int], Array],
+        density_fun_base: Callable[[Array], Array] = lambda _: jnp.array(1.0),
         name: str = "test",
     ):
         self.amp = amp
@@ -65,13 +68,13 @@ class Bank:
         self.density_fun_base = density_fun_base
         self.name = name
 
-        self.ratio_max: jnp.ndarray = None
-        self.n_templates: jnp.ndarray = None
-        self.templates: jnp.ndarray = None
-        self.effectualness_points: jnp.ndarray = None
-        self.effectualnesses: jnp.ndarray = None
-        self.eta_est: jnp.ndarray = None
-        self.eta_est_err: jnp.ndarray = None
+        self.ratio_max: Optional[Array] = None
+        self.n_templates: Optional[int] = None
+        self.templates: Optional[Array] = None
+        self.effectualness_points: Optional[Array] = None
+        self.effectualnesses: Optional[Array] = None
+        self.eta_est: Optional[Array] = None
+        self.eta_est_err: Optional[Array] = None
 
         # Key doesn't matter
         self._dim = self.sample_base(random.PRNGKey(1), 1).shape[-1]
@@ -87,27 +90,27 @@ class Bank:
         return self._dim
 
     def effectualness_fun(
-        self, theta1: jnp.ndarray, theta2: jnp.ndarray
-    ) -> jnp.ndarray:
+        self, theta1: Array, theta2: Array
+    ) -> Array:
         """
         Effectualness between two points
         """
         return get_effectualness(theta1, theta2, self.amp, self.Psi, self.fs, self.Sn)
 
-    def density_fun(self, theta: jnp.ndarray) -> jnp.ndarray:
+    def density_fun(self, theta: Array) -> Array:
         """
         Template density, sqrt(|g|).
         """
         return get_density(theta, self.amp, self.Psi, self.fs, self.Sn)
 
-    def g_fun(self, theta) -> jnp.ndarray:
+    def g_fun(self, theta) -> Array:
         """
         Parameter space metric maximized over extrinsic parameters t_0 and
         Phi_0, g.
         """
         return get_g(theta, self.amp, self.Psi, self.fs, self.Sn)
 
-    def gam_fun(self, theta) -> jnp.ndarray:
+    def gam_fun(self, theta) -> Array:
         """
         t_0 and parameter space metric maximized over the extrinsic parameter
         Phi_0, gamma.
@@ -116,11 +119,11 @@ class Bank:
 
     def est_ratio_max(
         self,
-        key,
+        key: PRNGKeyArray,
         n_iter: int = 1000,
         n_init: int = 200,
         show_progress: bool = True,
-    ) -> Tuple[jnp.ndarray, jnp.ndarray]:
+    ) -> Tuple[Array, Array]:
         return est_ratio_max(
             key,
             self.density_fun,
@@ -131,7 +134,7 @@ class Bank:
             show_progress,
         )
 
-    def gen_template_rejection(self, key: jnp.ndarray) -> jnp.ndarray:
+    def gen_template_rejection(self, key: PRNGKeyArray) -> Array:
         if self.ratio_max is None:
             raise ValueError(
                 "must set bank's 'ratio_max' attribute to an estimate of the"
@@ -145,7 +148,7 @@ class Bank:
             self.density_fun_base,
         )
 
-    def gen_templates_rejection(self, key: jnp.ndarray, n_templates) -> jnp.ndarray:
+    def gen_templates_rejection(self, key: PRNGKeyArray, n_templates) -> Array:
         """
         Generates templates using rejection sampling.
         """
@@ -160,7 +163,7 @@ class Bank:
 
     def fill_bank(
         self,
-        key: jnp.ndarray,
+        key: PRNGKeyArray,
         method="random",
         n_eff: int = 1000,
         show_progress: bool = True,
@@ -205,7 +208,7 @@ class Bank:
             self.n_templates = len(self.templates)
 
     def calc_bank_effectualness(
-        self, key: jnp.ndarray, n: int, show_progress: bool = True
+        self, key: PRNGKeyArray, n: int, show_progress: bool = True
     ):
         """
         Computes effectualnesses for a sample of parameter points, adds the
@@ -215,6 +218,9 @@ class Bank:
 
         The points are sampled following the metric density.
         """
+        if self.templates is None:
+            raise RuntimeError("cannot calculate effectualness of an empty bank")
+
         sample_eff_pt = jax.jit(self.gen_template_rejection)
         (
             self.effectualnesses,
@@ -242,10 +248,10 @@ class Bank:
     def load(
         cls,
         path: str,
-        amp: Callable[[jnp.ndarray, jnp.ndarray], jnp.ndarray],
-        Psi: Callable[[jnp.ndarray, jnp.ndarray], jnp.ndarray],
-        Sn: Callable[[jnp.ndarray], jnp.ndarray],
-        sample_base: Callable[[jnp.ndarray, int], jnp.ndarray],
+        amp: Callable[[Array, Array], Array],
+        Psi: Callable[[Array, Array], Array],
+        Sn: Callable[[Array], Array],
+        sample_base: Callable[[Array, int], Array],
     ):
         """
         Loads template bank's non-function attributes from a npz file.
