@@ -15,7 +15,7 @@ import matplotlib.pyplot as plt
 ##### Frequency settings
 f_u = 512.0  # Hz
 f_l = 24.0  # Hz
-N_fbins = 3000
+N_fbins = 4880
 #####
 
 m1_range = (1.001, 3.0)
@@ -117,7 +117,7 @@ def test_sampler(key):
 
 def gen_4D_taylorf2bank(key, seed, kind):
     minimum_match = 0.95
-    eta = 0.99
+    eta = 0.9
     fs = jnp.linspace(f_l, f_u, N_fbins)
     Sn = get_Sn_aLIGO()
 
@@ -175,10 +175,11 @@ def gen_4D_taylorf2bank(key, seed, kind):
 
     key, subkey = random.split(key)
     bank.fill_bank(subkey, method=kind)
+    bank.save()
 
-    # key, subkey = random.split(key)
-    # N = 100
-    # bank.calculate_bank_effectualness(subkey, N)
+    key, subkey = random.split(key)
+    N = 1000
+    bank.calc_bank_effectualness(subkey, N)
 
     bank.save()
 

@@ -1,10 +1,11 @@
 import click
 from jax import random
 import jax.numpy as jnp
+import numpy as np
+from typing import Callable
 from scipy.optimize import minimize_scalar
 
 from diffbank.bank import Bank
-from diffbank.noise import Sn_aLIGO
 from diffbank.utils import get_m1_m2_sampler
 from diffbank.waveforms.threePN_simple import Psi, amp
 
@@ -14,10 +15,19 @@ Generate a 3PN bank.
 
 minimum_match = 0.95
 m_star = 1 - minimum_match
-eta_star = 0.99
-fs = jnp.linspace(20.0, 2000.0, 1000)
-m_range = (1.4, 5.0)
+eta_star = 0.9
+fs = jnp.linspace(24.0, 512.0, 4880)
+m_range = (1.0, 3.0)
 sampler = get_m1_m2_sampler(m_range, m_range)
+
+
+def get_Sn_O3a() -> Callable[[jnp.ndarray], jnp.ndarray]:
+    """
+    Get interpolator for noise curve.
+    """
+    xp, yp = np.loadtxt("O3a_Livingston_ASD.txt", unpack=True)
+    PSD = yp ** 2
+    return lambda f: jnp.interp(f, xp, PSD, left=jnp.inf, right=jnp.inf)
 
 
 @click.command()
@@ -28,10 +38,9 @@ sampler = get_m1_m2_sampler(m_range, m_range)
 )
 def run(seed, kind, n_eta):
     key = random.PRNGKey(seed)
+    Sn = get_Sn_O3a()
 
-    bank = Bank(
-        amp, Psi, fs, Sn_aLIGO, m_star, eta_star, sampler, name=f"3pn-{kind}-{seed}"
-    )
+    bank = Bank(amp, Psi, fs, Sn, m_star, eta_star, sampler, name=f"3pn-{kind}-{seed}")
 
     # Get max density
     fun = lambda m1: -bank.density_fun(jnp.array([m1, m_range[0]]))

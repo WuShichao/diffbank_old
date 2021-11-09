@@ -6,7 +6,7 @@ from ..constants import C, G, MSUN
 
 
 """
-2PN metric parametrized by the black hole masses (m1, m2).
+2PN metric parametrized by the black hole masses (Mt, eta).
 """
 
 
@@ -41,5 +41,5 @@ def ms_to_Meta(ms: jnp.ndarray) -> jnp.ndarray:
 #     return Psi_Meta(f, ms_to_Meta(theta))
 
 
-def amp(f: jnp.ndarray, theta: jnp.ndarray) -> jnp.ndarray:
+def Amp(f: jnp.ndarray, theta: jnp.ndarray) -> jnp.ndarray:
     return f ** (-7 / 6)
