@@ -1,13 +1,17 @@
 from contextlib import nullcontext
 from math import pi
-from typing import Callable, Tuple
+from typing import Callable, Tuple, Union
 
 import jax
 from jax import random
+from jax._src.prng import PRNGKeyArray
 import jax.numpy as jnp
 from tqdm.auto import tqdm, trange
 
 from .constants import C, G
+
+
+Array = jnp.ndarray
 
 
 def ms_to_Mc_eta(m):
@@ -19,7 +23,7 @@ def get_f_isco(m):
     return 1 / (6 ** (3 / 2) * pi * m / (C ** 3 / G))
 
 
-def get_M_eta_sampler(M_range, eta_range) -> Callable[[jnp.ndarray, int], jnp.ndarray]:
+def get_M_eta_sampler(M_range, eta_range) -> Callable[[PRNGKeyArray, int], Array]:
     """
     Uniformly samples over the specified ranges.
     """
@@ -36,7 +40,7 @@ def get_M_eta_sampler(M_range, eta_range) -> Callable[[jnp.ndarray, int], jnp.nd
     return sampler
 
 
-def get_m1_m2_sampler(m1_range, m2_range) -> Callable[[jnp.ndarray, int], jnp.ndarray]:
+def get_m1_m2_sampler(m1_range, m2_range) -> Callable[[PRNGKeyArray, int], Array]:
     """
     Uniformly samples over the specified ranges, with the restriction that the
     first variable is larger than the second.
@@ -77,7 +81,7 @@ def get_effectualness(theta1, theta2, amp, Psi, fs, Sn):
     return jnp.abs(overlap_tc).max()
 
 
-def sample_uniform_ball(key, dim, shape: Tuple[int] = (1,)) -> jnp.ndarray:
+def sample_uniform_ball(key: PRNGKeyArray, dim: int, shape: Tuple[int] = (1,)) -> Array:
     """
     Uniformly sample from the unit ball.
     """
@@ -89,10 +93,10 @@ def sample_uniform_ball(key, dim, shape: Tuple[int] = (1,)) -> jnp.ndarray:
 
 
 def sample_uniform_metric_ellipse(
-    key: jnp.ndarray,
-    g: jnp.ndarray,
+    key: PRNGKeyArray,
+    g: Array,
     n: int,
-) -> jnp.ndarray:
+) -> Array:
     """
     Uniformly sample inside a metric ellipse centered at the origin.
     """
@@ -104,13 +108,13 @@ def sample_uniform_metric_ellipse(
 
 
 def get_template_frac_in_bounds(
-    key: jnp.ndarray,
-    theta: jnp.ndarray,
-    get_g: Callable[[jnp.ndarray], jnp.ndarray],
+    key: PRNGKeyArray,
+    theta: Array,
+    get_g: Callable[[Array], Array],
     m_star,
-    is_in_bounds: Callable[[jnp.ndarray], jnp.ndarray],
+    is_in_bounds: Callable[[Array], Array],
     n: int,
-) -> Tuple[jnp.ndarray, jnp.ndarray]:
+) -> Tuple[Array, Array]:
     """
     Estimates average fraction of a template's metric ellipse lying inside the
     parameter space.
@@ -133,14 +137,14 @@ def get_template_frac_in_bounds(
 
 
 def est_ratio_max(
-    key,
-    density_fun: Callable[[jnp.ndarray], jnp.ndarray],
-    sample_base: Callable[[jnp.ndarray, int], jnp.ndarray],
-    density_fun_base: Callable[[jnp.ndarray], jnp.ndarray] = lambda _: 1.0,
+    key: PRNGKeyArray,
+    density_fun: Callable[[Array], Array],
+    sample_base: Callable[[PRNGKeyArray, int], Array],
+    density_fun_base: Callable[[Array], Array] = lambda _: jnp.array(1.0),
     n_iter: int = 1000,
     n_init: int = 200,
     show_progress: bool = True,
-) -> Tuple[jnp.ndarray, jnp.ndarray]:
+) -> Tuple[Array, Array]:
     """
     Estimate maximum ratio of target to base density using empirical supremum
     rejection sampling.
@@ -211,12 +215,12 @@ def est_ratio_max(
 
 
 def gen_template_rejection(
-    key,
+    key: PRNGKeyArray,
     ratio_max,
-    density_fun: Callable[[jnp.ndarray], jnp.ndarray],
-    sample_base: Callable[[jnp.ndarray, int], jnp.ndarray],
-    density_fun_base: Callable[[jnp.ndarray], jnp.ndarray] = lambda _: 1.0,
-) -> jnp.ndarray:
+    density_fun: Callable[[Array], Array],
+    sample_base: Callable[[PRNGKeyArray, int], Array],
+    density_fun_base: Callable[[Array], Array] = lambda _: jnp.array(1.0),
+) -> Array:
     """
     Generates a single template using rejection sampling.
 
@@ -250,13 +254,13 @@ def gen_template_rejection(
 
 
 def gen_templates_rejection(
-    key,
+    key: PRNGKeyArray,
     n_templates,
     ratio_max,
-    density_fun: Callable[[jnp.ndarray], jnp.ndarray],
-    sample_base: Callable[[jnp.ndarray, int], jnp.ndarray],
-    density_fun_base: Callable[[jnp.ndarray], jnp.ndarray] = lambda _: 1.0,
-) -> jnp.ndarray:
+    density_fun: Callable[[Array], Array],
+    sample_base: Callable[[PRNGKeyArray, int], Array],
+    density_fun_base: Callable[[Array], Array] = lambda _: jnp.array(1.0),
+) -> Array:
     """
     Generates a bank with n_templates samples using rejection sampling.
 
@@ -278,12 +282,12 @@ def gen_templates_rejection(
 
 
 def _update_uncovered_eff(
-    pt: jnp.ndarray,
-    eff: jnp.ndarray,
-    template: jnp.ndarray,
-    minimum_match: jnp.ndarray,
-    effectualness_fun: Callable[[jnp.ndarray, jnp.ndarray], jnp.ndarray],
-) -> jnp.ndarray:
+    pt: Array,
+    eff: Array,
+    template: Array,
+    minimum_match: Union[float, Array],
+    effectualness_fun: Callable[[Array, Array], Array],
+) -> Array:
     """
     Computes effectualness for a point not already covered by a template.
     Jit-able.
@@ -300,18 +304,18 @@ def _update_uncovered_eff(
 
 
 def gen_bank_random(
-    key: jnp.ndarray,
-    minimum_match: float,
-    eta: float,
-    effectualness_fun: Callable[[jnp.ndarray, jnp.ndarray], jnp.ndarray],
-    ratio_max: jnp.ndarray,
-    density_fun: Callable[[jnp.ndarray], jnp.ndarray],
-    sample_base: Callable[[jnp.ndarray, int], jnp.ndarray],
-    density_fun_base: Callable[[jnp.ndarray], jnp.ndarray] = lambda _: 1.0,
-    eff_pt_sampler: Callable[[jnp.ndarray], jnp.ndarray] = None,
+    key: PRNGKeyArray,
+    minimum_match: Union[float, Array],
+    eta: Union[float, Array],
+    effectualness_fun: Callable[[Array, Array], Array],
+    ratio_max: Array,
+    density_fun: Callable[[Array], Array],
+    sample_base: Callable[[PRNGKeyArray, int], Array],
+    density_fun_base: Callable[[Array], Array] = lambda _: jnp.array(1.0),
+    eff_pt_sampler: Callable[[PRNGKeyArray], Array] = None,
     n_eff: int = 1000,
     show_progress: bool = True,
-) -> Tuple[jnp.ndarray, jnp.ndarray]:
+) -> Tuple[Array, Array]:
     """
     Arguments
     - effectualness_fun: function computing effectualness between points. Must
@@ -374,16 +378,16 @@ def gen_bank_random(
 
 
 def gen_bank_stochastic(
-    key: jnp.ndarray,
-    minimum_match: float,
-    eta: float,
-    effectualness_fun: Callable[[jnp.ndarray, jnp.ndarray], jnp.ndarray],
-    propose_template: Callable[[jnp.ndarray], jnp.ndarray],
-    eff_pt_sampler: Callable[[jnp.ndarray], jnp.ndarray],
+    key: PRNGKeyArray,
+    minimum_match: Union[float, Array],
+    eta: Union[float, Array],
+    effectualness_fun: Callable[[Array, Array], Array],
+    propose_template: Callable[[PRNGKeyArray], Array],
+    eff_pt_sampler: Callable[[PRNGKeyArray], Array],
     n_eff: int = 1000,
     show_progress: bool = True,
     n_acc_monitoring: int = 1,  # number of iterations for acc rate moving average
-) -> Tuple[jnp.ndarray, jnp.ndarray]:
+) -> Tuple[Array, Array]:
     """
     Arguments
     - effectualness_fun: function computing effectualness between points. Must
@@ -458,14 +462,14 @@ def gen_bank_stochastic(
 
 
 def get_bank_effectualness(
-    key: jnp.ndarray,
-    minimum_match: float,
-    templates: jnp.ndarray,
-    effectualness_fun: Callable[[jnp.ndarray, jnp.ndarray], jnp.ndarray],
-    eff_pt_sampler: Callable[[jnp.ndarray], jnp.ndarray],
+    key: PRNGKeyArray,
+    minimum_match: Union[float, Array],
+    templates: Array,
+    effectualness_fun: Callable[[Array, Array], Array],
+    eff_pt_sampler: Callable[[PRNGKeyArray], Array],
     n: int = 100,
     show_progress: bool = True,
-) -> Tuple[jnp.ndarray, jnp.ndarray, jnp.ndarray, jnp.ndarray]:
+) -> Tuple[Array, Array, Array, Array]:
     """
     Computes effectualness of a bank at random points.
 
@@ -485,7 +489,7 @@ def get_bank_effectualness(
     eff_pts = jnp.array([eff_pt_sampler(k) for k in random.split(key, n)])
     effs = []
     # https://en.wikipedia.org/wiki/Algorithms_for_calculating_variance#Welford's_online_algorithm
-    eta_est, eta_est_err, M_2 = 0.0, 0.0, 0.0
+    eta_est, eta_est_err, M_2 = jnp.array(0.0), jnp.array(0.0), jnp.array(0.0)
     with tqdm(eff_pts) if show_progress else nullcontext() as pbar:
         for n, pt in enumerate(pbar, start=1):  # type: ignore
             effs.append(get_bank_eff(pt))
