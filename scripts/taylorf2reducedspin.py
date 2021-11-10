@@ -51,10 +51,10 @@ key = random.PRNGKey(100)
 
 minimum_match = 0.95
 m_star = 1 - minimum_match
-eta_star = 0.99
+eta_star = 0.9
 # Frequency spacing is roughly small enough for calculations to be accurate
 # enough
-fs = jnp.linspace(20.0, 2000.0, 500)
+fs = jnp.linspace(24.0, 512.0, 4880)
 f_0 = 20.0  # Hz
 m_range = (1 * MSUN, 20 * MSUN)
 m_ns_thresh = 2 * MSUN

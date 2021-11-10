@@ -9,11 +9,11 @@ import jax.numpy as jnp
 
 
 def Psi(f: jnp.ndarray, theta: jnp.ndarray) -> jnp.ndarray:
-    # m1, m2 = theta
-    Mt, eta = theta
+    m1, m2 = theta
+    # Mt, eta = theta
     gt = 4.92549094830932e-6  # GN*Msun/c**3 in seconds
-    # Mt = m1 + m2
-    # eta = m1 * m2 / (m1 + m2) ** 2
+    Mt = m1 + m2
+    eta = m1 * m2 / (m1 + m2) ** 2
     EulerGamma = 0.57721566490153286060
     vlso = 1.0 / jnp.sqrt(6.0)
 

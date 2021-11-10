@@ -12,16 +12,16 @@ def Psi(f: jnp.ndarray, theta: jnp.ndarray) -> jnp.ndarray:
     phase (array): Phase of the GW as a function of frequency
     """
 
-    # m1, m2, chi1, chi2 = theta
-    (
-        Mt,
-        eta,
-        chi1,
-        chi2,
-    ) = theta
+    # (
+    #     Mt,
+    #     eta,
+    #     chi1,
+    #     chi2,
+    # ) = theta
 
-    # Mt = m1 + m2
-    # eta = m1 * m2 / (m1 + m2) ** 2
+    m1, m2, chi1, chi2 = theta
+    Mt = m1 + m2
+    eta = m1 * m2 / (m1 + m2) ** 2
 
     kappa1 = 1.0
     kappa2 = 1.0
@@ -252,17 +252,17 @@ def Amp(f: jnp.ndarray, theta: jnp.ndarray) -> jnp.ndarray:
     # eta = (16 * pi ** 5 / 25 * th0 ** 2 / th3 ** 5) ** (1 / 3)
     # Mt = M_chirp / eta ** (3 / 5)
 
-    (
-        Mt,
-        eta,
-        _,
-        _,
-    ) = theta
+    # (
+    #     Mt,
+    #     eta,
+    #     _,
+    #     _,
+    # ) = theta
 
-    # m1, m2, _, _ = theta
+    m1, m2, _, _ = theta
 
-    # Mt = m1 + m2
-    # eta = m1 * m2 / (m1 + m2) ** 2
+    Mt = m1 + m2
+    eta = m1 * m2 / (m1 + m2) ** 2
     distance = 1.0
     pre = 3.6686934875530996e-19  # (GN*Msun/c^3)^(5/6)/Hz^(7/6)*c/Mpc/sec
     Mchirp = Mt * eta ** 0.6

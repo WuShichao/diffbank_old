@@ -3,16 +3,26 @@ import os
 import jax
 from jax import random
 import jax.numpy as jnp
+import numpy as np
+from typing import Callable
 from scipy.optimize import minimize_scalar
 
 from diffbank.bank import Bank
-from diffbank.noise import Sn_aLIGO
 from diffbank.utils import get_m1_m2_sampler
 from diffbank.waveforms.threePN_simple import Psi, amp
 
 """
 Generate a 3PN bank.
 """
+
+
+def get_Sn_O3a() -> Callable[[jnp.ndarray], jnp.ndarray]:
+    """
+    Get interpolator for noise curve.
+    """
+    xp, yp = np.loadtxt("O3a_Livingston_ASD.txt", unpack=True)
+    PSD = yp ** 2
+    return lambda f: jnp.interp(f, xp, PSD, left=jnp.inf, right=jnp.inf)
 
 
 @click.command()
@@ -37,6 +47,7 @@ def run(seed, kind, n_eta, mm, eta_star, n_eff, savedir):
     fs = jnp.linspace(20.0, 2000.0, 1000)
     m_range = (1.4, 5.0)
     sampler = get_m1_m2_sampler(m_range, m_range)
+    Sn_aLIGO = get_Sn_O3a()
 
     bank = Bank(
         amp,

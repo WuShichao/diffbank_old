@@ -230,14 +230,6 @@ def Amp(f: jnp.ndarray, theta: jnp.ndarray) -> jnp.ndarray:
     Returns:
       Strain (array):
     """
-    # (
-    #     Mt,
-    #     eta,
-    #     _,
-    #     _,
-    #     _,
-    #     _,
-    # ) = theta
 
     Mt, eta, _, _, _, _ = theta
 
