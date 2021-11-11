@@ -1,6 +1,6 @@
 from diffbank.metric import get_g, get_gam
 from diffbank.noise import Sn_aLIGO as Sn_func
-from diffbank.waveforms.taylorf2 import Psi as _Psi, amp as _amp
+from diffbank.waveforms.taylorF2 import Psi as _Psi, Amp as _amp
 from jax import jit
 import jax.numpy as jnp
 

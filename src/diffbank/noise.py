@@ -12,8 +12,10 @@ import numpy as np
 
 from . import noise_resources
 
+Array = jnp.ndarray
 
-def Sn_aLIGO(f):
+
+def Sn_aLIGO(f: Array) -> Array:
     """
     Noise function for aLIGO?
 
@@ -32,7 +34,7 @@ def Sn_aLIGO(f):
     )
 
 
-def load_noise(name: str) -> Callable[[jnp.ndarray], jnp.ndarray]:
+def load_noise(name: str) -> Callable[[Array], Array]:
     """
     Loads noise curve from dat file with columns containing frequencies and PSD
     values.

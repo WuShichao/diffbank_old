@@ -22,7 +22,7 @@ def test_save_load():
     bank = Bank(
         amp,
         Psi,
-        jnp.array(0.0),
+        jnp.array([0.0, 1.0, 2.0]),
         Sn,
         0.05,
         0.99,

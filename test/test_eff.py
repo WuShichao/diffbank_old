@@ -1,8 +1,8 @@
 import time
 
 from diffbank.metric import match
-from diffbank.utils import get_effectualness as _get_effectualness
-from diffbank.noise import Sn_aLIGO as Sn_func
+from diffbank.utils import _get_effectualness, get_eff_pads
+from diffbank.noise import Sn_aLIGO as Sn
 from diffbank.waveforms.threePN_simple import Psi, amp
 from jax import jit, vmap
 import jax.numpy as jnp
@@ -20,13 +20,14 @@ def test_match():
     """
     theta_1 = jnp.array([3.0, 0.8])
     theta_2 = jnp.array([3.0, 0.8])
-    f = jnp.linspace(10, 500, 10000)
+    fs = jnp.linspace(10, 500, 10000)
+    pad_low, pad_high = get_eff_pads(fs)
 
     get_match = jit(_get_effectualness, static_argnums=(2, 3, 5))
 
     t0 = time.time()
     for _ in range(1000):
-        get_match(theta_1, theta_2, amp, Psi, f, Sn_func)
+        get_match(theta_1, theta_2, amp, Psi, fs, Sn, pad_low, pad_high)
 
     t1 = time.time()
 
@@ -41,12 +42,15 @@ def test_matches():
     theta_1 = jnp.array([2.20013935, 1.13180361])
     theta_2 = jnp.array([2.27775711, 1.30239947])
     del_ts = jnp.linspace(-0.5, 0.1, 2000)
-    f = jnp.linspace(10, 500, 10000)
+    fs = jnp.linspace(10, 500, 10000)
+    pad_low, pad_high = get_eff_pads(fs)
 
     matches = vmap(match, in_axes=(None, 0, None, None, None, None, None))(
-        theta_1, del_ts, theta_2 - theta_1, amp, Psi, f, Sn_func
+        theta_1, del_ts, theta_2 - theta_1, amp, Psi, fs, Sn
     ).max()
-    match_fft = _get_effectualness(theta_1, theta_2, amp, Psi, f, Sn_func)
+    match_fft = _get_effectualness(
+        theta_1, theta_2, amp, Psi, fs, Sn, pad_low, pad_high
+    )
 
     assert jnp.allclose(match_fft, matches.max(), rtol=5e-3)
 
