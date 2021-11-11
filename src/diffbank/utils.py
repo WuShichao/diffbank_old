@@ -58,27 +58,48 @@ def get_m1_m2_sampler(m1_range, m2_range) -> Callable[[PRNGKeyArray, int], Array
     return sampler
 
 
-def get_effectualness(theta1, theta2, amp, Psi, fs, Sn):
+def get_eff_pads(fs: Array) -> Tuple[Array, Array]:
+    """
+    Returns padding arrays required for accurate effectualness calculation.
+    Padding `fs` with the returned arrays (almost) doubles its size and extends
+    it down to 0.
+    """
+    df = fs[1] - fs[0]
+    N = 2 * jnp.array(fs[-1] / df - 1).astype(int)
+    pad_low = jnp.zeros(jnp.array(fs[0] / df).astype(int))
+    pad_high = jnp.zeros(N - jnp.array(fs[-1] / df).astype(int))
+    return pad_low, pad_high
+
+
+def _get_effectualness(
+    theta1: Array,
+    theta2: Array,
+    amp: Callable[[Array, Array], Array],
+    Psi: Callable[[Array, Array], Array],
+    fs: Array,
+    Sn: Callable[[Array], Array],
+    pad_low: Array,
+    pad_high: Array,
+):
     """
     Calculates the match between two waveforms at theta1 and theta2.
 
     Assumes fs's entries are linearly spaced!
     """
-    Sns = Sn(fs)
-    df = fs[1] - fs[0]
-
-    # Calculating the best fit tc
     wf1 = amp(fs, theta1) * jnp.exp(1j * Psi(fs, theta1))
     wf2 = amp(fs, theta2) * jnp.exp(1j * Psi(fs, theta2))
+    Sns = Sn(fs)
 
-    norm1 = jnp.sqrt(4.0 * jnp.sum((wf1 * wf1.conj() / Sns) * df).real)
-    norm2 = jnp.sqrt(4.0 * jnp.sum((wf2 * wf2.conj() / Sns) * df).real)
+    # Factors of 4 and df drop out due to linearity
+    norm1 = jnp.sqrt(jnp.sum(jnp.abs(wf1) ** 2 / Sns))
+    norm2 = jnp.sqrt(jnp.sum(jnp.abs(wf2) ** 2 / Sns))
 
-    norm = norm1 * norm2
-
-    overlap_tc = jnp.fft.fft((4.0 * wf1 * wf2.conj() * df) / Sns / norm)
-
-    return jnp.abs(overlap_tc).max()
+    # Use IFFT trick to maximize over t_c. Ref: Maggiore's book, eq. 7.171.
+    integrand_padded = jnp.concatenate((pad_low, wf1.conj() * wf2 / Sns, pad_high))
+    # print(low_padding, high_padding, len(fs), N)
+    return jnp.abs(len(integrand_padded) * jnp.fft.ifft(integrand_padded)).max() / (
+        norm1 * norm2
+    )
 
 
 def sample_uniform_ball(key: PRNGKeyArray, dim: int, shape: Tuple[int] = (1,)) -> Array:

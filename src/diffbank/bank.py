@@ -1,5 +1,5 @@
 import os
-from typing import Callable, Set, Tuple, Union, Optional
+from typing import Callable, Optional, Set, Tuple, Union
 
 import jax
 from jax import random
@@ -8,13 +8,14 @@ import jax.numpy as jnp
 
 from .metric import get_density, get_g, get_gam
 from .utils import (
+    _get_effectualness,
     est_ratio_max,
     gen_bank_random,
     gen_bank_stochastic,
     gen_template_rejection,
     gen_templates_rejection,
     get_bank_effectualness,
-    get_effectualness,
+    get_eff_pads,
 )
 
 Array = jnp.ndarray
@@ -34,6 +35,8 @@ class Bank:
             "effectualnesses",
             "eta_est",
             "eta_est_err",
+            "_eff_pad_low",
+            "_eff_pad_high",
             "_dim",
         ]
     )
@@ -58,6 +61,15 @@ class Bank:
         density_fun_base: Callable[[Array], Array] = lambda _: jnp.array(1.0),
         name: str = "test",
     ):
+        # Validation
+        if len(fs) <= 2:
+            # Required for padding to work
+            raise ValueError("length of frequency array must be at least three")
+        if m_star > 1 or m_star < 0:
+            raise ValueError("m_star must be in (0, 1)")
+        if eta > 1 or eta < 0:
+            raise ValueError("eta must be in (0, 1)")
+
         self.amp = amp
         self.Psi = Psi
         self.fs = fs
@@ -76,6 +88,10 @@ class Bank:
         self.eta_est: Optional[Array] = None
         self.eta_est_err: Optional[Array] = None
 
+        # Padding for accurate effectualness calculation
+        # Length of padded array
+        self._eff_pad_low, self._eff_pad_high = get_eff_pads(self.fs)
+
         # Key doesn't matter
         self._dim = self.sample_base(random.PRNGKey(1), 1).shape[-1]
 
@@ -89,13 +105,20 @@ class Bank:
     def dim(self) -> int:
         return self._dim
 
-    def effectualness_fun(
-        self, theta1: Array, theta2: Array
-    ) -> Array:
+    def effectualness_fun(self, theta1: Array, theta2: Array) -> Array:
         """
         Effectualness between two points
         """
-        return get_effectualness(theta1, theta2, self.amp, self.Psi, self.fs, self.Sn)
+        return _get_effectualness(
+            theta1,
+            theta2,
+            self.amp,
+            self.Psi,
+            self.fs,
+            self.Sn,
+            self._eff_pad_low,
+            self._eff_pad_high,
+        )
 
     def density_fun(self, theta: Array) -> Array:
         """
