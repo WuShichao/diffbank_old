@@ -64,21 +64,30 @@ def get_effectualness(theta1, theta2, amp, Psi, fs, Sn):
 
     Assumes fs's entries are linearly spaced!
     """
-    Sns = Sn(fs)
     df = fs[1] - fs[0]
 
-    # Calculating the best fit tc
     wf1 = amp(fs, theta1) * jnp.exp(1j * Psi(fs, theta1))
     wf2 = amp(fs, theta2) * jnp.exp(1j * Psi(fs, theta2))
+    Sns = Sn(fs)
 
-    norm1 = jnp.sqrt(4.0 * jnp.sum((wf1 * wf1.conj() / Sns) * df).real)
-    norm2 = jnp.sqrt(4.0 * jnp.sum((wf2 * wf2.conj() / Sns) * df).real)
+    # Factors of 4 and df drop out due to linearity
+    norm1 = jnp.sqrt(jnp.sum(jnp.abs(wf1) ** 2 / Sns))
+    norm2 = jnp.sqrt(jnp.sum(jnp.abs(wf2) ** 2 / Sns))
 
-    norm = norm1 * norm2
+    # Length of padded array
+    N = 2 * jnp.array(fs[-1] / df - 1).astype(int)
+    low_padding = jnp.array(fs[0] / df).astype(int)
+    high_padding = N - jnp.array(fs[-1] / df).astype(int)
 
-    overlap_tc = jnp.fft.fft((4.0 * wf1 * wf2.conj() * df) / Sns / norm)
-
-    return jnp.abs(overlap_tc).max()
+    # Use IFFT trick to maximize over t_c. Ref: Maggiore's book, eq. 7.171.
+    integrand_padded = jnp.concatenate(
+        (
+            jnp.zeros(low_padding, dtype=jnp.complex128),
+            wf1.conj() * wf2 / Sns,
+            jnp.zeros(high_padding, dtype=jnp.complex128),
+        )
+    )
+    return jnp.abs(N * jnp.fft.ifft(integrand_padded)).max() / (norm1 * norm2)
 
 
 def sample_uniform_ball(key: PRNGKeyArray, dim: int, shape: Tuple[int] = (1,)) -> Array:
