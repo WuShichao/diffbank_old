@@ -274,7 +274,7 @@ class Bank:
         amp: Callable[[Array, Array], Array],
         Psi: Callable[[Array, Array], Array],
         Sn: Callable[[Array], Array],
-        sample_base: Callable[[Array, int], Array],
+        sample_base: Callable[[PRNGKeyArray, int], Array],
     ):
         """
         Loads template bank's non-function attributes from a npz file.
