@@ -59,7 +59,7 @@ def plot_time_scaling():
 
         runtimes[(kind, mm, eta_star)] = time
 
-    fig, axs = plt.subplots(1, 2, figsize=(8, 3.5))
+    fig, axs = plt.subplots(1, 2, figsize=(6, 3))
 
     # mm scaling
     eta_star_ref = 0.9
@@ -102,7 +102,6 @@ def plot_time_scaling():
         fmt=".",
     )
     ax.set_xlabel(r"$\eta_*$")
-    ax.set_ylabel(r"$C_\mathcal{S} / C_\mathcal{R}$")
     ax.set_ylim(0, None)
 
     fig.tight_layout()
@@ -150,7 +149,7 @@ def plot_n_templates_scaling():
             log(1 - eta_star) / ((1 - p) * log(1 - p) ** 2) * p_err
         )
 
-    fig, axs = plt.subplots(1, 2, figsize=(8, 3.5), sharey=True)
+    fig, axs = plt.subplots(1, 2, figsize=(6, 3), sharey=True)
 
     ax = axs[0]
     ax.scatter(mms, [ns[(mm, eta_star_ref)] for mm in mms], c="C0", label="Generated")
