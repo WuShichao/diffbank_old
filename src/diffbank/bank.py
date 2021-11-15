@@ -274,13 +274,14 @@ class Bank:
         amp: Callable[[Array, Array], Array],
         Psi: Callable[[Array, Array], Array],
         Sn: Callable[[Array], Array],
-        sample_base: Callable[[Array, int], Array],
+        sample_base: Callable[[PRNGKeyArray, int], Array],
+        ignore_key_errors: bool = False,
     ):
         """
         Loads template bank's non-function attributes from a npz file.
         """
         d = jnp.load(path, allow_pickle=True)["bank"].item()
-        if d.keys() != cls.provided_vars | cls.computed_vars:
+        if d.keys() != cls.provided_vars | cls.computed_vars and not ignore_key_errors:
             raise ValueError("missing or extra keys in bank file")
 
         # Instantiate with provided variables and functions
@@ -290,10 +291,15 @@ class Bank:
             "Sn": Sn,
             "sample_base": sample_base,
         }
-        bank = cls(**{**fn_kwargs, **{name: d[name] for name in cls.provided_vars}})
 
-        # Set computed variables
-        for name in cls.computed_vars:
-            setattr(bank, name, d[name])
+        try:
+            bank = cls(**{**fn_kwargs, **{name: d[name] for name in cls.provided_vars}})
+
+            # Set computed variables
+            for name in cls.computed_vars:
+                setattr(bank, name, d[name])
+        except KeyError as e:
+            if not ignore_key_errors:
+                raise e
 
         return bank

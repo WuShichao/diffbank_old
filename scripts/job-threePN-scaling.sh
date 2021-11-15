@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --job-name=scaling
-#SBATCH --time=24:00:00
+#SBATCH --time=72:00:00
 #SBATCH -n 13
 #SBATCH -p normal
 
@@ -23,6 +23,10 @@ python threePN.py --seed 13 --kind stochastic --mm 0.80 --eta-star 0.9 --n-eff 1
 python threePN.py --seed 14 --kind stochastic --mm 0.75 --eta-star 0.9 --n-eff 1000 --n-eta 0 --savedir $savedir 2>&1 | tee -a $outdir/threePN-stochastic-14-mm=0.75-eta_star=0.9.txt &
 wait
 echo "Done varying mm"
+
+# Retrieve final results
+cp -r $savedir .
+cp -r $outdir .
 
 echo "Random, varying eta_star"
 python threePN.py --seed 15 --kind random --mm 0.90 --eta-star 0.975 --n-eff 1000 --n-eta 0 --savedir $savedir 2>&1 | tee -a $outdir/threePN-random-15-mm=0.90-eta_star=0.975.txt &
