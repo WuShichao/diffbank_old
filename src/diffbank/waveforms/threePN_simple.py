@@ -68,4 +68,5 @@ def Psi(f: jnp.ndarray, theta: jnp.ndarray) -> jnp.ndarray:
 
 
 def amp(f: jnp.ndarray, theta: jnp.ndarray) -> jnp.ndarray:
+    m1, m2 = theta
     return f ** (-7 / 6)

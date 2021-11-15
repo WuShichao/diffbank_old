@@ -38,8 +38,6 @@ def Psi(f: jnp.ndarray, theta: jnp.ndarray) -> jnp.ndarray:
     gt = 4.92549094830932e-6  # GN*Msun/c^3 in seconds
     EulerGamma = 0.57721566490153286060
     vlso = 1.0 / jnp.sqrt(6.0)
-    # chi_1 = jnp.array([spin1x, spin1y, spin1z])
-    # chi_2 = jnp.array([spin2x, spin2y, spin2z])
 
     chi_s = 0.5 * (chi1 + chi2)
     chi_a = 0.5 * (chi1 - chi2)
