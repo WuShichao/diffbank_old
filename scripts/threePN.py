@@ -44,8 +44,8 @@ def run(seed, kind, n_eta, mm, eta_star, n_eff, savedir):
     key = random.PRNGKey(seed)
     m_star = 1 - mm
 
-    fs = jnp.linspace(20.0, 2000.0, 1000)
-    m_range = (1.4, 5.0)
+    fs = jnp.linspace(24.0, 512.0, 4880)
+    m_range = (1.0, 3.0)
     sampler = get_m1_m2_sampler(m_range, m_range)
     Sn_aLIGO = get_Sn_O3a()
 
