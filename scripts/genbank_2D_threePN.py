@@ -11,7 +11,6 @@ from diffbank.bank import Bank
 from diffbank.utils import get_m1_m2_sampler
 from diffbank.waveforms.threePN_simple import Psi, amp
 
-# jax.config.update("jax_platform_name", "cpu")
 
 """
 Generate a 3PN bank.
@@ -48,7 +47,10 @@ def get_Sn_O3a() -> Callable[[jnp.ndarray], jnp.ndarray]:
 @click.option("--eta-star", default=0.9, help="eta*")
 @click.option("--n-eff", default=1000)
 @click.option("--savedir", default="banks", help="directory in which to save the bank")
-def gen_2D_threePN(seed, kind, n_eta, mm, eta_star, n_eff, savedir):
+@click.option("--device", default="cpu", help="device to run on")
+def gen_2D_threePN(seed, kind, n_eta, mm, eta_star, n_eff, savedir, device):
+    jax.config.update("jax_platform_name", device)
+
     key = random.PRNGKey(seed)
     m_star = 1 - mm
 

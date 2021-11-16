@@ -9,7 +9,6 @@ from diffbank.waveforms import taylorF2
 from jax import random
 from typing import Callable
 
-jax.config.update("jax_platform_name", "cpu")
 
 """
 Generate a TaylorF2 bank which can be compared with the BNS section of https://arxiv.org/abs/1904.01683
@@ -82,7 +81,10 @@ def sampler(key, n):
 @click.option("--eta-star", default=0.9, help="eta*")
 @click.option("--n-eff", default=1000)
 @click.option("--savedir", default="banks", help="directory in which to save the bank")
-def gen_4D_taylorf2bank(seed, kind, n_eta, mm, eta_star, n_eff, savedir):
+@click.option("--device", default="cpu", help="device to run on")
+def gen_4D_taylorf2bank(seed, kind, n_eta, mm, eta_star, n_eff, savedir, device):
+    jax.config.update("jax_platform_name", device)
+
     key = random.PRNGKey(seed)
     fs = jnp.linspace(f_l, f_u, N_fbins)
     Sn = get_Sn_O3a()

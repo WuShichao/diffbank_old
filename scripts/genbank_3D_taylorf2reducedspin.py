@@ -11,8 +11,6 @@ from jax import random
 from math import pi
 from typing import Callable
 
-jax.config.update("jax_platform_name", "cpu")
-
 
 """
 Generate a TaylorF2ReducedSpin bank for comparison with Ajith et al 2014,
@@ -147,7 +145,10 @@ def sampler(key, n):
 @click.option("--eta-star", default=0.9, help="eta*")
 @click.option("--n-eff", default=1000)
 @click.option("--savedir", default="banks", help="directory in which to save the bank")
-def gen_2D_tf2rs(seed, kind, n_eta, mm, eta_star, n_eff, savedir):
+@click.option("--device", default="cpu", help="device to run on")
+def gen_2D_tf2rs(seed, kind, n_eta, mm, eta_star, n_eff, savedir, device):
+    jax.config.update("jax_platform_name", device)
+
     key = random.PRNGKey(seed)
     m_star = 1 - mm
     fs = jnp.linspace(f_l, f_u, N_fbins)
