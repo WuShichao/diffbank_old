@@ -4,7 +4,7 @@ from typing import Callable, Tuple, Union
 
 import jax
 from jax import random
-from jax._src.prng import PRNGKeyArray
+# from jax._src.prng import PRNGKeyArray
 import jax.numpy as jnp
 from tqdm.auto import tqdm, trange
 
@@ -12,6 +12,7 @@ from .constants import C, G
 
 
 Array = jnp.ndarray
+PRNGKeyArray = Array
 
 
 def ms_to_Mc_eta(m):
