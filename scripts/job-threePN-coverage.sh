@@ -10,7 +10,7 @@ source ~/.virtualenvs/diffbank-3.9.6/bin/activate
 
 START=100
 
-for i in $(seq $START $(($START + 50))); do
+for i in $(seq $START $(($START + 30))); do
     python genbank_2D_threePN.py --seed $i --kind random --device gpu --n-eff 500 --noise analytic
 done
 
