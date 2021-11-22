@@ -1,17 +1,15 @@
+from math import pi
 import os
 
 import click
 import jax
+from jax import random
 import jax.numpy as jnp
-import numpy as np
-
 from scipy.optimize import minimize_scalar
+
 from diffbank.bank import Bank
 from diffbank.constants import C, G, MSUN
 from diffbank.waveforms.taylorf2reducedspin import Psi, amp, get_th_boundary_interps
-from jax import random
-from math import pi
-from typing import Callable
 
 
 """
@@ -65,15 +63,6 @@ th3_max = -res.fun
 th3_range = (th3_interp_low(th0_range[0]), th3_max)
 # Maximum value of th3
 th3S_max = get_th3S_max(th0_th3_max, th3_max)
-
-
-def get_Sn_O3a() -> Callable[[jnp.ndarray], jnp.ndarray]:
-    """
-    Get interpolator for noise curve.
-    """
-    xp, yp = np.loadtxt("O3a_Livingston_ASD.txt", unpack=True)
-    PSD = yp ** 2
-    return lambda f: jnp.interp(f, xp, PSD, left=jnp.inf, right=jnp.inf)
 
 
 def get_M_tot(th0, th3):
@@ -148,13 +137,21 @@ def sampler(key, n):
 @click.option("--n-eff", default=1000)
 @click.option("--savedir", default="banks", help="directory in which to save the bank")
 @click.option("--device", default="cpu", help="device to run on")
-def gen_3D_tf2rs(seed, kind, n_eta, mm, eta_star, n_eff, savedir, device):
+@click.option(
+    "--noise", default="interpolated", help="noise curve: 'analytic' or 'interpolated'"
+)
+def gen_3D_tf2rs(seed, kind, n_eta, mm, eta_star, n_eff, savedir, device, noise):
     jax.config.update("jax_platform_name", device)
 
     key = random.PRNGKey(seed)
     m_star = 1 - mm
     fs = jnp.linspace(f_l, f_u, N_fbins)
-    Sn = get_Sn_O3a()
+    if noise == "interpolated":
+        from diffbank.noise import Sn_O3a as Sn
+    elif noise == "analytic":
+        from diffbank.noise import Sn_aLIGO as Sn
+    else:
+        raise ValueError("invalid 'noise' argument")
 
     bank = Bank(
         amp,

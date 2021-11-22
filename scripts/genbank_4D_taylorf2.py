@@ -1,13 +1,14 @@
-import click
-import numpy as np
-import jax.numpy as jnp
-import jax
 import os
+from typing import Callable
+
+import click
+import jax
+from jax import random
+import jax.numpy as jnp
+import numpy as np
 
 from diffbank.bank import Bank
 from diffbank.waveforms import taylorF2
-from jax import random
-from typing import Callable
 
 
 """
@@ -27,15 +28,6 @@ m2_range = (1.0, 3.0)
 
 chi1_range = (-0.99, 0.99)
 chi2_range = (-0.99, 0.99)
-
-
-def get_Sn_O3a() -> Callable[[jnp.ndarray], jnp.ndarray]:
-    """
-    Get interpolator for noise curve.
-    """
-    xp, yp = np.loadtxt("O3a_Livingston_ASD.txt", unpack=True)
-    PSD = yp ** 2
-    return lambda f: jnp.interp(f, xp, PSD, left=jnp.inf, right=jnp.inf)
 
 
 def sampler(key, n):
@@ -82,12 +74,20 @@ def sampler(key, n):
 @click.option("--n-eff", default=1000)
 @click.option("--savedir", default="banks", help="directory in which to save the bank")
 @click.option("--device", default="cpu", help="device to run on")
-def gen_4D_taylorf2bank(seed, kind, n_eta, mm, eta_star, n_eff, savedir, device):
+@click.option(
+    "--noise", default="interpolated", help="noise curve: 'analytic' or 'interpolated'"
+)
+def gen_4D_taylorf2bank(seed, kind, n_eta, mm, eta_star, n_eff, savedir, device, noise):
     jax.config.update("jax_platform_name", device)
 
     key = random.PRNGKey(seed)
     fs = jnp.linspace(f_l, f_u, N_fbins)
-    Sn = get_Sn_O3a()
+    if noise == "interpolated":
+        from diffbank.noise import Sn_O3a as Sn
+    elif noise == "analytic":
+        from diffbank.noise import Sn_aLIGO as Sn
+    else:
+        raise ValueError("invalid 'noise' argument")
 
     bank = Bank(
         taylorF2.Amp,
