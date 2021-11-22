@@ -1,6 +1,7 @@
 from math import log
 import os
 import re
+from typing import Dict, Tuple
 
 from diffbank.bank import Bank
 from diffbank.noise import Sn_aLIGO
@@ -26,17 +27,30 @@ Generates the following plots:
 """
 
 
-key = random.PRNGKey(183)
+def parse_ps() -> Dict[float, Tuple[float, float]]:
+    """
+    Parses output from job-threePN-est-p.sh.
 
-# Coverage probabilities
-# mm -> (p_est, p_est_err), from threePN-p.txt
-ps = {
-    0.95: (0.0022500000000000003, 0.0003350326476628807),
-    0.9: (0.004, 0.000446318272088428),
-    0.85: (0.00585, 0.0005392484353245727),
-    0.8: (0.01025, 0.000712212661358951),
-    0.75: (0.01, 0.0007035623639735144),
-}
+    Returns
+        Dict mapping `mm` to an MC estimate of the covering probability `p` and
+        associated error `p_err`.
+    """
+    with open("../scripts/threePN-p.txt", "r") as f:
+        lines = f.readlines()
+
+    ps = {}
+    for i in range(len(lines) // 2):
+        mm = float(re.search("mm=(\d\.\d*)", lines[2 * i]).group(1))
+        match = re.search("p = (\d\.\d*) \+\/\- (\d\.\d*)", lines[1])
+        p = float(match.group(1))
+        p_err = float(match.group(2))
+        ps[mm] = (p, p_err)
+
+    return ps
+
+
+key = random.PRNGKey(183)
+ps = parse_ps()
 fs = jnp.linspace(20.0, 2000.0, 1000)
 m_range = (1.4, 5.0)
 sampler = get_m1_m2_sampler(m_range, m_range)
