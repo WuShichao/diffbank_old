@@ -1,6 +1,6 @@
 from diffbank.bank import Bank
 from diffbank.utils import get_m1_m2_sampler
-from diffbank.noise import Sn_aLIGO as Sn_func
+from diffbank.noise import Sn_LIGOI
 from diffbank.waveforms.threePN_simple import Psi, amp
 from jax import random
 import jax.numpy as jnp
@@ -78,7 +78,7 @@ def test_random():
         amp,
         Psi,
         fs,
-        Sn_func,
+        Sn_LIGOI,
         m_star=1 - 0.95,
         eta=0.99,
         sample_base=sampler,

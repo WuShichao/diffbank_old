@@ -4,7 +4,7 @@ import jax.numpy as jnp
 import matplotlib.pyplot as plt
 
 from diffbank.bank import Bank
-from diffbank.noise import Sn_aLIGO as Sn
+from diffbank.noise import Sn_LIGOI as Sn
 from diffbank.utils import get_m1_m2_sampler
 from diffbank.waveforms.threePN_simple import Psi, amp
 

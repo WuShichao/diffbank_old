@@ -4,7 +4,7 @@ import re
 from typing import Dict, Tuple
 
 from diffbank.bank import Bank
-from diffbank.noise import Sn_aLIGO
+from diffbank.noise import Sn_LIGOI
 from diffbank.utils import get_m1_m2_sampler
 from diffbank.waveforms.threePN_simple import Psi, amp
 from jax import random
@@ -41,9 +41,11 @@ def parse_ps() -> Dict[float, Tuple[float, float]]:
     ps = {}
     for i in range(len(lines) // 2):
         mm = float(re.search("mm=(\d\.\d*)", lines[2 * i]).group(1))
-        match = re.search("p = (\d\.\d*) \+\/\- (\d\.\d*)", lines[1])
+
+        match = re.search("p = (\d\.\d*) \+\/\- (\d\.\d*)", lines[2 * i + 1])
         p = float(match.group(1))
         p_err = float(match.group(2))
+
         ps[mm] = (p, p_err)
 
     return ps
@@ -64,10 +66,85 @@ def cs_cr_pred_err(p_err, p, eta_star, n_eff=1000):
     return cs_cr_pred(p, eta_star, n_eff) / p * p_err
 
 
-def plot_time_scaling():
+def plot_n_templates_scaling(axs):
+    ns, n_ests, n_est_errs = {}, {}, {}
+
+    # Varying mm
+    eta_star_ref = 0.9
+    mms = [0.95, 0.90, 0.85, 0.80, 0.75]
+    for seed, mm in enumerate(mms, 5):
+        path = os.path.join(
+            "../scripts/threePN-banks-scaling",
+            f"3pn-random-{seed}-mm={mm}-eta_star={eta_star_ref}-n_eff=1000.npz",
+        )
+        # Measurement
+        ns[(mm, eta_star_ref)] = Bank.load(
+            path, amp, Psi, Sn_LIGOI, sampler
+        ).n_templates
+        # Prediction
+        p, p_err = ps[mm]
+        n_ests[(mm, eta_star_ref)] = log(1 - eta_star_ref) / log(1 - p)
+        n_est_errs[(mm, eta_star_ref)] = (
+            log(1 - eta_star_ref) / ((1 - p) * log(1 - p) ** 2) * p_err
+        )
+
+    # Varying eta_star
+    mm_ref = 0.9
+    eta_stars = [0.975, 0.95, 0.925, 0.900, 0.875, 0.850]
+    for seed, eta_star in enumerate(eta_stars, 15):
+        path = os.path.join(
+            "../scripts/threePN-banks-scaling",
+            f"3pn-random-{seed}-mm={mm_ref}-eta_star={eta_star}-n_eff=1000.npz",
+        )
+        # Measurement
+        ns[(mm_ref, eta_star)] = Bank.load(
+            path, amp, Psi, Sn_LIGOI, sampler
+        ).n_templates
+        # Prediction
+        p, p_err = ps[mm_ref]
+        n_ests[(mm_ref, eta_star)] = log(1 - eta_star) / log(1 - p)
+        n_est_errs[(mm_ref, eta_star)] = (
+            log(1 - eta_star) / ((1 - p) * log(1 - p) ** 2) * p_err
+        )
+
+    ax = axs[0]
+    ax.scatter(
+        mms, [ns[(mm, eta_star_ref)] for mm in mms], c="C0", s=10, label="Generated"
+    )
+    ax.errorbar(
+        mms,
+        [n_ests[(mm, eta_star_ref)] for mm in mms],
+        2 * jnp.array([n_est_errs[(mm, eta_star_ref)] for mm in mms]),
+        fmt=".",
+        c="C1",
+        label=r"Estimated ($\pm 2\sigma$)",
+    )
+    ax.set_ylabel("Number of templates")
+
+    ax = axs[1]
+    ax.scatter(
+        eta_stars,
+        [ns[(mm_ref, eta_star)] for eta_star in eta_stars],
+        c="C0",
+        s=10,
+        label="Generated",
+    )
+    ax.errorbar(
+        eta_stars,
+        [n_ests[(mm_ref, eta_star)] for eta_star in eta_stars],
+        2 * jnp.array([n_est_errs[(mm_ref, eta_star)] for eta_star in eta_stars]),
+        fmt=".",
+        c="C1",
+        label=r"Estimated ($\pm 2\sigma$)",
+    )
+    ax.set_ylim(0, None)
+
+
+def plot_time_scaling(axs):
     runtimes = {}
     filenames = os.listdir("../scripts/threePN-outputs-scaling/")
 
+    # Parse tqdm output to get timing information
     for fn in filenames:
         kind = fn.split("-")[1]
         mm = float(re.search("mm=(\d*\.\d*)-", fn).group(1))
@@ -89,8 +166,6 @@ def plot_time_scaling():
 
         runtimes[(kind, mm, eta_star)] = time
 
-    fig, axs = plt.subplots(1, 2, figsize=(6, 3))
-
     # mm scaling
     eta_star_ref = 0.9
     mms = jnp.array([0.75, 0.80, 0.85, 0.90, 0.95])
@@ -105,118 +180,48 @@ def plot_time_scaling():
     ax = axs[0]
     c_ss = jnp.array([runtimes[("stochastic", mm, eta_star_ref)] for mm in mms])
     c_rs = jnp.array([runtimes[("random", mm, eta_star_ref)] for mm in mms])
-    ax.plot(mms, c_ss / c_rs, ".", label="Measured")
+    ax.scatter(mms, c_ss / c_rs, c="C0", s=10, label="Generated")
     ax.errorbar(
         mms,
         cs_cr_pred(p_ests, eta_star_ref),
         2 * cs_cr_pred_err(p_errs, p_ests, eta_star_ref),
-        label=r"Estimated ($\pm 2\sigma$)",
         fmt=".",
+        c="C1",
+        label=r"Estimated ($\pm 2\sigma$)",
     )
-    ax.set_xlabel("Minimum match")
     ax.set_ylabel(r"$C_\mathcal{S} / C_\mathcal{R}$")
     ax.set_ylim(0, None)
-    ax.legend(loc="upper left", frameon=False)
 
     ax = axs[1]
     c_ss = jnp.array(
         [runtimes[("stochastic", mm_ref, eta_star)] for eta_star in eta_stars]
     )
     c_rs = jnp.array([runtimes[("random", mm_ref, eta_star)] for eta_star in eta_stars])
-    ax.plot(eta_stars, c_ss / c_rs, ".", label="Measured")
+    ax.scatter(eta_stars, c_ss / c_rs, c="C0", s=10, label="Generated")
     ax.errorbar(
         eta_stars,
         cs_cr_pred(p_est_ref, eta_stars),
         2 * cs_cr_pred_err(p_err_ref, p_est_ref, eta_stars),
-        label=r"Estimated ($\pm 2\sigma$)",
-        fmt=".",
-    )
-    ax.set_xlabel(r"$\eta_*$")
-    ax.set_ylim(0, None)
-
-    fig.tight_layout()
-    fig.savefig("figures/threePN-time-scaling.pdf")
-
-
-def plot_n_templates_scaling():
-    ns, n_ests, n_est_errs = {}, {}, {}
-
-    # Varying mm
-    eta_star_ref = 0.9
-    mms = [0.95, 0.90, 0.85, 0.80, 0.75]
-    for seed, mm in enumerate(mms, 5):
-        path = os.path.join(
-            "../scripts/threePN-banks-scaling",
-            f"3pn-random-{seed}-mm={mm}-eta_star={eta_star_ref}-n_eff=1000.npz",
-        )
-        # Measurement
-        ns[(mm, eta_star_ref)] = Bank.load(
-            path, amp, Psi, Sn_aLIGO, sampler
-        ).n_templates
-        # Prediction
-        p, p_err = ps[mm]
-        n_ests[(mm, eta_star_ref)] = log(1 - eta_star_ref) / log(1 - p)
-        n_est_errs[(mm, eta_star_ref)] = (
-            log(1 - eta_star_ref) / ((1 - p) * log(1 - p) ** 2) * p_err
-        )
-
-    # Varying eta_star
-    mm_ref = 0.9
-    eta_stars = [0.975, 0.95, 0.925, 0.900, 0.875, 0.850]
-    for seed, eta_star in enumerate(eta_stars, 15):
-        path = os.path.join(
-            "../scripts/threePN-banks-scaling",
-            f"3pn-random-{seed}-mm={mm_ref}-eta_star={eta_star}-n_eff=1000.npz",
-        )
-        # Measurement
-        ns[(mm_ref, eta_star)] = Bank.load(
-            path, amp, Psi, Sn_aLIGO, sampler
-        ).n_templates
-        # Prediction
-        p, p_err = ps[mm_ref]
-        n_ests[(mm_ref, eta_star)] = log(1 - eta_star) / log(1 - p)
-        n_est_errs[(mm_ref, eta_star)] = (
-            log(1 - eta_star) / ((1 - p) * log(1 - p) ** 2) * p_err
-        )
-
-    fig, axs = plt.subplots(1, 2, figsize=(6, 3), sharey=True)
-
-    ax = axs[0]
-    ax.scatter(mms, [ns[(mm, eta_star_ref)] for mm in mms], c="C0", label="Generated")
-    ax.errorbar(
-        mms,
-        [n_ests[(mm, eta_star_ref)] for mm in mms],
-        2 * jnp.array([n_est_errs[(mm, eta_star_ref)] for mm in mms]),
         fmt=".",
         c="C1",
         label=r"Estimated ($\pm 2\sigma$)",
     )
-    ax.set_xlabel("Minimum match")
-    ax.set_ylabel("Number of templates")
-    ax.legend(loc="upper left", frameon=False)
-
-    ax = axs[1]
-    ax.scatter(
-        eta_stars,
-        [ns[(mm_ref, eta_star)] for eta_star in eta_stars],
-        c="C0",
-        label="Generated",
-    )
-    ax.errorbar(
-        eta_stars,
-        [n_ests[(mm_ref, eta_star)] for eta_star in eta_stars],
-        2 * jnp.array([n_est_errs[(mm_ref, eta_star)] for eta_star in eta_stars]),
-        fmt=".",
-        c="C1",
-        label=r"Estimated ($\pm 2\sigma$)",
-    )
-    ax.set_xlabel(r"$\eta_*$")
     ax.set_ylim(0, None)
 
+
+def run():
+    fig, axes = plt.subplots(2, 2, figsize=(5, 4), sharey="row")
+
+    plot_n_templates_scaling([axes[0, 0], axes[0, 1]])
+    plot_time_scaling([axes[1, 0], axes[1, 1]])
+
+    axes[1, 0].set_xlabel("Minimum match")
+    axes[1, 1].set_xlabel(r"$\eta_*$")
+    axes[0, 0].legend(loc="upper left", frameon=False, fontsize=9)
+
     fig.tight_layout()
-    fig.savefig("figures/threePN-n_templates-scaling.pdf")
+    fig.savefig("figures/scaling.pdf")
 
 
 if __name__ == "__main__":
-    plot_time_scaling()
-    plot_n_templates_scaling()
+    run()

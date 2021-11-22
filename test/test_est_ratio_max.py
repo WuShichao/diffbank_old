@@ -1,7 +1,7 @@
 from scipy.optimize import minimize_scalar
 
 from diffbank.bank import Bank
-from diffbank.noise import Sn_aLIGO
+from diffbank.noise import Sn_LIGOI
 from diffbank.utils import get_m1_m2_sampler
 from diffbank.waveforms.threePN_simple import Psi, amp
 import jax
@@ -24,7 +24,7 @@ def test():
     fs = jnp.linspace(20.0, 2000.0, 1000)
     m_range = (1.4, 5.0)
     sampler = get_m1_m2_sampler(m_range, m_range)
-    bank = Bank(amp, Psi, fs, Sn_aLIGO, m_star, eta_star, sampler)
+    bank = Bank(amp, Psi, fs, Sn_LIGOI, m_star, eta_star, sampler)
 
     # Get max density
     fun = lambda m1: -bank.density_fun(jnp.array([m1, m_range[0]]))

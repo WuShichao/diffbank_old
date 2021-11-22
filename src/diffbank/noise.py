@@ -15,11 +15,11 @@ from . import noise_resources
 Array = jnp.ndarray
 
 
-def Sn_aLIGO(f: Array) -> Array:
+def Sn_LIGOI(f: Array) -> Array:
     """
-    Noise function for aLIGO?
+    LIGO-I PSD.
 
-    TODO: fix!
+    Reference: https://arxiv.org/abs/gr-qc/0010009
     """
     fs = 40  # Hz
     f_theta = 150  # Hz

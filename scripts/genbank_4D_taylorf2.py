@@ -85,7 +85,7 @@ def gen_4D_taylorf2bank(seed, kind, n_eta, mm, eta_star, n_eff, savedir, device,
     if noise == "interpolated":
         from diffbank.noise import Sn_O3a as Sn
     elif noise == "analytic":
-        from diffbank.noise import Sn_aLIGO as Sn
+        from diffbank.noise import Sn_LIGOI as Sn
     else:
         raise ValueError("invalid 'noise' argument")
 
