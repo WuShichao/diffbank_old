@@ -9,7 +9,7 @@ from diffbank.waveforms.threePN_simple import amp, Psi
 
 # from diffbank.waveforms.twoPN_simple import amp, Psi
 from diffbank.utils import get_M_eta_sampler
-from diffbank.noise import Sn_aLIGO as Sn_func
+from diffbank.noise import Sn_LIGOI
 from diffbank.metric import get_metric_ellipse
 import matplotlib.pyplot as plt
 
@@ -54,7 +54,7 @@ def gen_effectualness():
         amp,
         Psi,
         fs,
-        Sn_func,
+        Sn_LIGOI,
         sampler,
         m_star=1 - mismatch,
         eta=eta,
@@ -86,7 +86,7 @@ def check_metric_ellipse():
 
     fs = jnp.linspace(30.0, 512.0, 1000)
     theta = jnp.array([4.0, 0.13888])
-    p = get_metric_ellipse(theta, amp, Psi, fs, Sn_func)
+    p = get_metric_ellipse(theta, amp, Psi, fs, Sn_LIGOI)
 
     plt.figure()
     ax = plt.gca()

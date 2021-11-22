@@ -1,5 +1,5 @@
 from diffbank.metric import get_g, get_gam
-from diffbank.noise import Sn_aLIGO as Sn_func
+from diffbank.noise import Sn_LIGOI
 from diffbank.waveforms.taylorF2 import Psi as _Psi, Amp as _amp
 from jax import jit
 import jax.numpy as jnp
@@ -19,8 +19,8 @@ def test_taylorf2_dets():
     f_min, f_max = jnp.array(10.0), jnp.array(512.0)
     fs = jnp.linspace(f_min, f_max, 10000)
 
-    gam = get_gam(jnp.array([m1, m2, 0.3, 0.5]), amp, Psi, fs, Sn_func)
-    g = get_g(jnp.array([m1, m2, 0.3, 0.5]), amp, Psi, fs, Sn_func)
+    gam = get_gam(jnp.array([m1, m2, 0.3, 0.5]), amp, Psi, fs, Sn_LIGOI)
+    g = get_g(jnp.array([m1, m2, 0.3, 0.5]), amp, Psi, fs, Sn_LIGOI)
 
     det_g = jnp.linalg.det(g)
 
