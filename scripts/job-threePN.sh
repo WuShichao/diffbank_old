@@ -1,17 +1,23 @@
 #!/bin/bash
-#SBATCH --job-name=3PN
-#SBATCH --time=10:00:00
-#SBATCH -N 1
-#SBATCH -p shared
+#SBATCH --job-name=threePN
+#SBATCH --account=rrg-lplevass
+#SBATCH --time=00-03:00:00
+#SBATCH --gres=gpu:1
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=47000M
 
-START=1
-NPROC=`nproc --all`
-echo $NPROC
-echo $START
-echo $(($NPROC + $START - 1))
+# START=1
+# NPROC=`nproc --all`
+# echo $NPROC
+# echo $START
+# echo $(($NPROC + $START - 1))
+# 
+# for i in $(seq $START $(($NPROC + $START - 1))); do
+#     python threePN.py --seed $i --kind stochastic &
+# done
+# 
+# wait
 
-for i in $(seq $START $(($NPROC + $START - 1))); do
-    python threePN.py --seed $i --kind stochastic &
-done
+source ~/.virtualenvs/diffbank-3.9.6/bin/activate
 
-wait
+python genbank_2D_threePN.py --seed 1 --kind random --device gpu

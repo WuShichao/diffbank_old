@@ -1,3 +1,5 @@
+import os
+
 import click
 import jax
 import jax.numpy as jnp
@@ -146,7 +148,7 @@ def sampler(key, n):
 @click.option("--n-eff", default=1000)
 @click.option("--savedir", default="banks", help="directory in which to save the bank")
 @click.option("--device", default="cpu", help="device to run on")
-def gen_2D_tf2rs(seed, kind, n_eta, mm, eta_star, n_eff, savedir, device):
+def gen_3D_tf2rs(seed, kind, n_eta, mm, eta_star, n_eff, savedir, device):
     jax.config.update("jax_platform_name", device)
 
     key = random.PRNGKey(seed)
@@ -188,4 +190,4 @@ def gen_2D_tf2rs(seed, kind, n_eta, mm, eta_star, n_eff, savedir, device):
 
 
 if __name__ == "__main__":
-    gen_2D_tf2rs()
+    gen_3D_tf2rs()
