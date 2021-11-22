@@ -48,7 +48,10 @@ def get_Sn_O3a() -> Callable[[jnp.ndarray], jnp.ndarray]:
 @click.option("--n-eff", default=1000)
 @click.option("--savedir", default="banks", help="directory in which to save the bank")
 @click.option("--device", default="cpu", help="device to run on")
-def gen_2D_threePN(seed, kind, n_eta, mm, eta_star, n_eff, savedir, device):
+@click.option(
+    "--noise", default="interpolated", help="noise curve: 'analytic' or 'interpolated'"
+)
+def gen_2D_threePN(seed, kind, n_eta, mm, eta_star, n_eff, savedir, device, noise):
     jax.config.update("jax_platform_name", device)
 
     key = random.PRNGKey(seed)
@@ -57,7 +60,10 @@ def gen_2D_threePN(seed, kind, n_eta, mm, eta_star, n_eff, savedir, device):
     fs = jnp.linspace(f_l, f_u, N_fbins)
     m_range = (1.0, 3.0)
     sampler = get_m1_m2_sampler(m_range, m_range)
-    Sn = get_Sn_O3a()
+    if noise == "interpolated":
+        Sn = get_Sn_O3a()
+    elif noise == "analytic":
+        from diffbank.noise import Sn_aLIGO as Sn
 
     bank = Bank(
         amp,

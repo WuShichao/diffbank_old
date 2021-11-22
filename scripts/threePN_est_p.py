@@ -12,7 +12,8 @@ from diffbank.utils import gen_templates_rejection, get_m1_m2_sampler
 from diffbank.waveforms.threePN_simple import Psi, amp
 
 """
-Generate a 3PN bank.
+Computes an MC estimate (with error bars) for the covering probability `p` for
+the 3.5PN-2D bank.
 """
 
 
