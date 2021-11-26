@@ -56,65 +56,65 @@ ps = parse_ps()
 fs = jnp.linspace(20.0, 2000.0, 1000)
 m_range = (1.4, 5.0)
 sampler = get_m1_m2_sampler(m_range, m_range)
+eta_ref = 0.9
+mm_ref = 0.9
 
 
-def cs_cr_pred(p, eta_star, n_eff=1000):
-    return 1 / (n_eff * p) * (1 + jnp.log(1 - eta_star)) / (eta_star - 1)
+def cs_cr_pred(p, eta, n_eff=1000):
+    return 1 / (n_eff * p) * (1 + jnp.log(1 - eta)) / (eta - 1)
 
 
-def cs_cr_pred_err(p_err, p, eta_star, n_eff=1000):
-    return cs_cr_pred(p, eta_star, n_eff) / p * p_err
+def cs_cr_pred_err(p_err, p, eta, n_eff=1000):
+    return cs_cr_pred(p, eta, n_eff) / p * p_err
 
 
 def plot_n_templates_scaling(axs):
     ns, n_ests, n_est_errs = {}, {}, {}
 
     # Varying mm
-    eta_star_ref = 0.9
     mms = [0.95, 0.90, 0.85, 0.80, 0.75]
     for seed, mm in enumerate(mms, 5):
         path = os.path.join(
             "../scripts/threePN-banks-scaling",
-            f"3pn-random-{seed}-mm={mm}-eta_star={eta_star_ref}-n_eff=1000.npz",
+            f"3pn-random-{seed}-mm={mm}-eta_star={eta_ref}-n_eff=1000.npz",
         )
         # Measurement
-        ns[(mm, eta_star_ref)] = Bank.load(
+        ns[(mm, eta_ref)] = Bank.load(
             path, amp, Psi, Sn_LIGOI, sampler
         ).n_templates
         # Prediction
         p, p_err = ps[mm]
-        n_ests[(mm, eta_star_ref)] = log(1 - eta_star_ref) / log(1 - p)
-        n_est_errs[(mm, eta_star_ref)] = (
-            log(1 - eta_star_ref) / ((1 - p) * log(1 - p) ** 2) * p_err
+        n_ests[(mm, eta_ref)] = log(1 - eta_ref) / log(1 - p)
+        n_est_errs[(mm, eta_ref)] = (
+            log(1 - eta_ref) / ((1 - p) * log(1 - p) ** 2) * p_err
         )
 
-    # Varying eta_star
-    mm_ref = 0.9
-    eta_stars = [0.975, 0.95, 0.925, 0.900, 0.875, 0.850]
-    for seed, eta_star in enumerate(eta_stars, 15):
+    # Varying eta
+    etas = [0.975, 0.95, 0.925, 0.900, 0.875, 0.850]
+    for seed, eta in enumerate(etas, 15):
         path = os.path.join(
             "../scripts/threePN-banks-scaling",
-            f"3pn-random-{seed}-mm={mm_ref}-eta_star={eta_star}-n_eff=1000.npz",
+            f"3pn-random-{seed}-mm={mm_ref}-eta_star={eta}-n_eff=1000.npz",
         )
         # Measurement
-        ns[(mm_ref, eta_star)] = Bank.load(
+        ns[(mm_ref, eta)] = Bank.load(
             path, amp, Psi, Sn_LIGOI, sampler
         ).n_templates
         # Prediction
         p, p_err = ps[mm_ref]
-        n_ests[(mm_ref, eta_star)] = log(1 - eta_star) / log(1 - p)
-        n_est_errs[(mm_ref, eta_star)] = (
-            log(1 - eta_star) / ((1 - p) * log(1 - p) ** 2) * p_err
+        n_ests[(mm_ref, eta)] = log(1 - eta) / log(1 - p)
+        n_est_errs[(mm_ref, eta)] = (
+            log(1 - eta) / ((1 - p) * log(1 - p) ** 2) * p_err
         )
 
     ax = axs[0]
     ax.scatter(
-        mms, [ns[(mm, eta_star_ref)] for mm in mms], c="C0", s=10, label="Generated"
+        mms, [ns[(mm, eta_ref)] for mm in mms], c="C0", s=10, label="Generated"
     )
     ax.errorbar(
         mms,
-        [n_ests[(mm, eta_star_ref)] for mm in mms],
-        2 * jnp.array([n_est_errs[(mm, eta_star_ref)] for mm in mms]),
+        [n_ests[(mm, eta_ref)] for mm in mms],
+        2 * jnp.array([n_est_errs[(mm, eta_ref)] for mm in mms]),
         fmt=".",
         c="C1",
         label=r"Estimated ($\pm 2\sigma$)",
@@ -123,16 +123,16 @@ def plot_n_templates_scaling(axs):
 
     ax = axs[1]
     ax.scatter(
-        eta_stars,
-        [ns[(mm_ref, eta_star)] for eta_star in eta_stars],
+        etas,
+        [ns[(mm_ref, eta)] for eta in etas],
         c="C0",
         s=10,
         label="Generated",
     )
     ax.errorbar(
-        eta_stars,
-        [n_ests[(mm_ref, eta_star)] for eta_star in eta_stars],
-        2 * jnp.array([n_est_errs[(mm_ref, eta_star)] for eta_star in eta_stars]),
+        etas,
+        [n_ests[(mm_ref, eta)] for eta in etas],
+        2 * jnp.array([n_est_errs[(mm_ref, eta)] for eta in etas]),
         fmt=".",
         c="C1",
         label=r"Estimated ($\pm 2\sigma$)",
@@ -148,7 +148,7 @@ def plot_time_scaling(axs):
     for fn in filenames:
         kind = fn.split("-")[1]
         mm = float(re.search("mm=(\d*\.\d*)-", fn).group(1))
-        eta_star = float(re.search("eta_star=(\d*\.\d*)\.txt", fn).group(1))
+        eta = float(re.search("eta_star=(\d*\.\d*)\.txt", fn).group(1))
 
         with open(os.path.join("../scripts/threePN-outputs-scaling", fn)) as f:
             raw = f.read()
@@ -164,27 +164,27 @@ def plot_time_scaling(axs):
             assert len(raw_time) <= 3
             time = sum([float(rt) * 60 ** i for i, rt in enumerate(reversed(raw_time))])
 
-        runtimes[(kind, mm, eta_star)] = time
+        runtimes[(kind, mm, eta)] = time
 
     # mm scaling
-    eta_star_ref = 0.9
+    eta_ref = 0.9
     mms = jnp.array([0.75, 0.80, 0.85, 0.90, 0.95])
     p_ests = jnp.array([ps[mm][0] for mm in mms])
     p_errs = jnp.array([ps[mm][1] for mm in mms])
-    # eta_star scaling
-    eta_stars = jnp.array([0.850, 0.875, 0.900, 0.925, 0.950, 0.975])
+    # eta scaling
+    etas = jnp.array([0.850, 0.875, 0.900, 0.925, 0.950, 0.975])
     mm_ref = 0.9
     p_est_ref = ps[mm_ref][0]
     p_err_ref = ps[mm_ref][1]
 
     ax = axs[0]
-    c_ss = jnp.array([runtimes[("stochastic", mm, eta_star_ref)] for mm in mms])
-    c_rs = jnp.array([runtimes[("random", mm, eta_star_ref)] for mm in mms])
+    c_ss = jnp.array([runtimes[("stochastic", mm, eta_ref)] for mm in mms])
+    c_rs = jnp.array([runtimes[("random", mm, eta_ref)] for mm in mms])
     ax.scatter(mms, c_ss / c_rs, c="C0", s=10, label="Generated")
     ax.errorbar(
         mms,
-        cs_cr_pred(p_ests, eta_star_ref),
-        2 * cs_cr_pred_err(p_errs, p_ests, eta_star_ref),
+        cs_cr_pred(p_ests, eta_ref),
+        2 * cs_cr_pred_err(p_errs, p_ests, eta_ref),
         fmt=".",
         c="C1",
         label=r"Estimated ($\pm 2\sigma$)",
@@ -194,14 +194,14 @@ def plot_time_scaling(axs):
 
     ax = axs[1]
     c_ss = jnp.array(
-        [runtimes[("stochastic", mm_ref, eta_star)] for eta_star in eta_stars]
+        [runtimes[("stochastic", mm_ref, eta)] for eta in etas]
     )
-    c_rs = jnp.array([runtimes[("random", mm_ref, eta_star)] for eta_star in eta_stars])
-    ax.scatter(eta_stars, c_ss / c_rs, c="C0", s=10, label="Generated")
+    c_rs = jnp.array([runtimes[("random", mm_ref, eta)] for eta in etas])
+    ax.scatter(etas, c_ss / c_rs, c="C0", s=10, label="Generated")
     ax.errorbar(
-        eta_stars,
-        cs_cr_pred(p_est_ref, eta_stars),
-        2 * cs_cr_pred_err(p_err_ref, p_est_ref, eta_stars),
+        etas,
+        cs_cr_pred(p_est_ref, etas),
+        2 * cs_cr_pred_err(p_err_ref, p_est_ref, etas),
         fmt=".",
         c="C1",
         label=r"Estimated ($\pm 2\sigma$)",
@@ -215,9 +215,11 @@ def run():
     plot_n_templates_scaling([axes[0, 0], axes[0, 1]])
     plot_time_scaling([axes[1, 0], axes[1, 1]])
 
-    axes[1, 0].set_xlabel("Minimum match")
-    axes[1, 1].set_xlabel(r"$\eta_*$")
+    axes[1, 0].set_xlabel(r"$1 - m_*$")
+    axes[1, 1].set_xlabel(r"$\eta$")
     axes[0, 0].legend(loc="upper left", frameon=False, fontsize=9)
+    axes[0, 0].set_title(r"$\eta = %g$" % eta_ref, fontsize=9)
+    axes[0, 1].set_title(r"$1 - m_* = %g$" % mm_ref, fontsize=9)
 
     fig.tight_layout()
     fig.savefig("figures/scaling.pdf")
