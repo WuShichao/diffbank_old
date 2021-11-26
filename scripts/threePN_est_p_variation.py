@@ -100,11 +100,11 @@ def run(seed, mm, n_pts, n_templates):
     print("min, max, mean:", ps.min(), ps.max(), ps.mean())
 
     # Save results
-    jnp.savez("threePN-est-p-variation.npz", eff_pts=eff_pts, ps=ps, p_errs=p_errs)
+    jnp.savez(f"threePN-est-p-variation-{mm}.npz", eff_pts=eff_pts, ps=ps, p_errs=p_errs)
 
     plt.scatter(*eff_pts.T, c=ps)
     plt.colorbar()
-    plt.savefig("threePN-est-p-variation.pdf")
+    plt.savefig(f"threePN-est-p-variation-{mm}.pdf")
 
 
 if __name__ == "__main__":
