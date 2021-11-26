@@ -1,5 +1,6 @@
 font.size : 16
-legend.fontsize : 16
+legend.fontsize : 12
+legend.frameon : False
 axes.labelsize : 16
 axes.titlesize : 16
 xtick.labelsize: 16

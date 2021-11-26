@@ -57,6 +57,7 @@ def plot_eta_dist():
         eta_ests,
         yerr=2 * eta_est_errs,
         fmt=".",
+        c="C0",
         label=r"Random ($\pm 2\sigma$)",
     )
     # Stochastic bank
@@ -65,13 +66,14 @@ def plot_eta_dist():
         eta_est_s,
         yerr=2 * eta_est_err_s,
         fmt=".",
+        c="C1",
         label=r"Stochastic ($\pm 2\sigma$)",
     )
 
     # Target eta
     plt.axhline(0.9, color="k", linestyle="--", linewidth=1)
 
-    plt.xlabel(r"$n_\mathrm{templates}$")
+    plt.xlabel(r"$N$")
     plt.ylabel(r"$\eta$")
     plt.legend(loc="upper left", frameon=False)
     plt.tight_layout()

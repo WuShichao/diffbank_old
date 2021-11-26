@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import jax.numpy as jnp
-plt.style.use('../plot_style.mplstyle')
+
+plt.style.use("../plot_style.mplstyle")
 
 """
 Plots effectualness histograms for the main three banks in the diffbank paper.
