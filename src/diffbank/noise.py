@@ -59,3 +59,4 @@ def load_noise(name: str, asd: bool = False) -> Callable[[Array], Array]:
 
 Sn_aLIGOZeroDetHighPower = load_noise("aLIGOZeroDetHighPower")
 Sn_O3a = load_noise("O3a_Livingston_ASD", asd=True)
+Sn_O2 = load_noise("O2_ASD", asd=True)
