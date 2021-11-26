@@ -16,9 +16,11 @@ from diffbank.waveforms.threePN_simple import Psi, amp
 """
 Generates a 3.5PN-2D bank.
 
-To generate the bank for the paper, use
+To generate two banks for the paper, use
 
     >>> python genbank_2D_threePN.py --seed 1 --kind random
+    >>> python genbank_2D_threePN.py --seed 2 --kind stochastic
+
 """
 
 ##### Frequency settings
@@ -29,8 +31,8 @@ N_fbins = 4880
 
 
 @click.command()
-@click.option("--seed", type=int, help="PRNG seed")
-@click.option("--kind", type=str, help="kind of bank ('random' or 'stochastic')")
+@click.option("--seed", default=1, help="PRNG seed")
+@click.option("--kind", default="random", help="kind of bank: 'random' or 'stochastic'")
 @click.option(
     "--n-eta",
     default=1000,
@@ -43,7 +45,9 @@ N_fbins = 4880
 @click.option("--savedir", default="banks", help="directory in which to save the bank")
 @click.option("--device", default="cpu", help="device to run on")
 @click.option(
-    "--noise", default="interpolated", help="noise curve: 'analytic' or 'interpolated'"
+    "--noise",
+    default="interpolated",
+    help="noise curve: 'analytic' (LIGO-I) or 'interpolated' (Livingston O3a)",
 )
 def gen_2D_threePN(seed, kind, n_eta, mm, eta_star, n_eff, savedir, device, noise):
     jax.config.update("jax_platform_name", device)

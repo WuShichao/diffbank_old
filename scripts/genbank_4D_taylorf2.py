@@ -13,9 +13,12 @@ from diffbank.waveforms import taylorF2
 
 """
 Generate a TaylorF2 bank which can be compared with the BNS section of https://arxiv.org/abs/1904.01683
+
+To reproduce the bank in the paper, run
+
+    >>> python genbank_4D_taylorf2.py
+
 """
-# To generate results for paper use command
-# python3 genbank_4D_taylorf2.py --seed 1 --kind random
 
 ##### Frequency settings
 f_u = 512.0  # Hz
@@ -61,21 +64,23 @@ def sampler(key, n):
 
 
 @click.command()
-@click.option("--seed", type=int, help="PRNG seed")
-@click.option("--kind", type=str, help="Type of bank")
+@click.option("--seed", default=1, help="PRNG seed")
+@click.option("--kind", default="random", help="kind of bank: 'random' or 'stochastic'")
 @click.option(
     "--n-eta",
     default=1000,
     type=int,
     help="number of new points at which to compute effectualnesses",
 )
-@click.option("--mm", default=0.95, help="minimum match")
+@click.option("--mm", default=0.96, help="minimum match")
 @click.option("--eta-star", default=0.9, help="eta*")
 @click.option("--n-eff", default=1000)
 @click.option("--savedir", default="banks", help="directory in which to save the bank")
 @click.option("--device", default="cpu", help="device to run on")
 @click.option(
-    "--noise", default="interpolated", help="noise curve: 'analytic' or 'interpolated'"
+    "--noise",
+    default="interpolated",
+    help="noise curve: 'analytic' (LIGO-I) or 'interpolated' (LIGO O2)",
 )
 def gen_4D_taylorf2bank(seed, kind, n_eta, mm, eta_star, n_eff, savedir, device, noise):
     jax.config.update("jax_platform_name", device)
@@ -83,7 +88,7 @@ def gen_4D_taylorf2bank(seed, kind, n_eta, mm, eta_star, n_eff, savedir, device,
     key = random.PRNGKey(seed)
     fs = jnp.linspace(f_l, f_u, N_fbins)
     if noise == "interpolated":
-        from diffbank.noise import Sn_O3a as Sn
+        from diffbank.noise import Sn_O2 as Sn
     elif noise == "analytic":
         from diffbank.noise import Sn_LIGOI as Sn
     else:

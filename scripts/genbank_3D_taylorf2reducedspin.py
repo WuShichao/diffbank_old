@@ -15,16 +15,21 @@ from diffbank.waveforms.taylorf2reducedspin import Psi, amp, get_th_boundary_int
 """
 Generate a TaylorF2ReducedSpin bank for comparison with Ajith et al 2014,
 https://arxiv.org/abs/1210.6666.
+
+To reproduce the bank in the paper, run
+
+    >>> python genbank_3D_taylorf2reducedspin.py
+
 """
-# To generate results for paper use command
-# python3 genbank_3D_taylorf2reducedspin.py --seed 1 --kind random
 
 ##### Frequency settings
-f_u = 512.0  # Hz
-f_l = 24.0  # Hz
-N_fbins = 4880
+# Since the lowest BH mass for this bank is 1 * MSUN, need to go up to its ISCO
+# frequency
+f_u = 2200.0  # Hz
+f_0 = f_l = 20.0  # Hz
+df = 0.1
+N_fbins = int((f_u - f_l) / df)
 #####
-f_0 = 20.0  # Hz
 
 m_range = (1 * MSUN, 20 * MSUN)
 m_ns_thresh = 2 * MSUN
@@ -124,21 +129,25 @@ def sampler(key, n):
 
 
 @click.command()
-@click.option("--seed", type=int, help="PRNG seed")
-@click.option("--kind", type=str, help="Type of bank")
+@click.option("--seed", default=1, help="PRNG seed")
+@click.option("--kind", default="random", help="kind of bank: 'random' or 'stochastic'")
 @click.option(
     "--n-eta",
     default=1000,
     type=int,
     help="number of new points at which to compute effectualnesses",
 )
-@click.option("--mm", default=0.95, help="minimum match")
-@click.option("--eta-star", default=0.9, help="eta*")
-@click.option("--n-eff", default=1000)
+@click.option(
+    "--mm", default=0.95, help="minimum match, chosen to match arXiv:1210.6666"
+)
+@click.option("--eta-star", default=0.993, help="eta, chosen to match arXiv:1210.6666")
+@click.option("--n-eff", default=10000)
 @click.option("--savedir", default="banks", help="directory in which to save the bank")
 @click.option("--device", default="cpu", help="device to run on")
 @click.option(
-    "--noise", default="interpolated", help="noise curve: 'analytic' or 'interpolated'"
+    "--noise",
+    default="interpolated",
+    help="noise curve: 'analytic' (LIGO-I) or 'interpolated' (aLIGOZeroDetHighPower from pycbc)",
 )
 def gen_3D_tf2rs(seed, kind, n_eta, mm, eta_star, n_eff, savedir, device, noise):
     jax.config.update("jax_platform_name", device)
@@ -147,7 +156,7 @@ def gen_3D_tf2rs(seed, kind, n_eta, mm, eta_star, n_eff, savedir, device, noise)
     m_star = 1 - mm
     fs = jnp.linspace(f_l, f_u, N_fbins)
     if noise == "interpolated":
-        from diffbank.noise import Sn_O3a as Sn
+        from diffbank.noise import Sn_aLIGOZeroDetHighPower as Sn
     elif noise == "analytic":
         from diffbank.noise import Sn_LIGOI as Sn
     else:
