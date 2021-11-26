@@ -3,7 +3,7 @@ from typing import Callable, Optional, Set, Tuple, Union
 
 import jax
 from jax import random
-from jax._src.prng import PRNGKeyArray
+# from jax._src.prng import PRNGKeyArray
 import jax.numpy as jnp
 
 from .metric import get_density, get_g, get_gam
@@ -19,6 +19,7 @@ from .utils import (
 )
 
 Array = jnp.ndarray
+PRNGKeyArray = Array
 
 
 class Bank:

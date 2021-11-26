@@ -2,7 +2,7 @@ import time
 
 from diffbank.metric import match
 from diffbank.utils import _get_effectualness, get_eff_pads
-from diffbank.noise import Sn_aLIGO as Sn
+from diffbank.noise import Sn_LIGOI as Sn
 from diffbank.waveforms.threePN_simple import Psi, amp
 from jax import jit, vmap
 import jax.numpy as jnp

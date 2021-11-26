@@ -11,6 +11,7 @@ from jax import jit
 from diffbank.waveforms import kappa6D
 from diffbank.metric import get_g
 
+#jax.config.update("jax_platform_name", "cpu")
 """
 Tests consistency of random template bank
 """

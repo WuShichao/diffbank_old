@@ -15,11 +15,11 @@ from . import noise_resources
 Array = jnp.ndarray
 
 
-def Sn_aLIGO(f: Array) -> Array:
+def Sn_LIGOI(f: Array) -> Array:
     """
-    Noise function for aLIGO?
+    LIGO-I PSD.
 
-    TODO: fix!
+    Reference: https://arxiv.org/abs/gr-qc/0010009
     """
     fs = 40  # Hz
     f_theta = 150  # Hz
@@ -34,7 +34,7 @@ def Sn_aLIGO(f: Array) -> Array:
     )
 
 
-def load_noise(name: str) -> Callable[[Array], Array]:
+def load_noise(name: str, asd: bool = False) -> Callable[[Array], Array]:
     """
     Loads noise curve from dat file with columns containing frequencies and PSD
     values.
@@ -50,9 +50,12 @@ def load_noise(name: str) -> Callable[[Array], Array]:
     with path_context as path:
         fs, Sns = np.loadtxt(path, unpack=True)
 
+    if asd:
+        Sns = Sns ** 2
     Sns = jax.ops.index_update(Sns, Sns == 0.0, jnp.inf)
     Sn = jax.jit(lambda f: jnp.interp(f, fs, Sns, left=jnp.inf, right=jnp.inf))
     return Sn
 
 
 Sn_aLIGOZeroDetHighPower = load_noise("aLIGOZeroDetHighPower")
+Sn_O3a = load_noise("O3a_Livingston_ASD", asd=True)

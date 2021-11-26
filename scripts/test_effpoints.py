@@ -2,7 +2,7 @@ import click
 import matplotlib.pyplot as plt
 
 from diffbank.bank import Bank
-from diffbank.noise import Sn_aLIGO
+from diffbank.noise import Sn_LIGOI
 from diffbank.utils import get_m1_m2_sampler
 from diffbank.waveforms.threePN_simple import Psi, amp
 import jax
@@ -22,7 +22,7 @@ def test_eff(key):
         amp,
         Psi,
         fs,
-        Sn_aLIGO,
+        Sn_LIGOI,
         m_star=1 - minimum_match,
         eta=eta,
         sample_base=sampler,

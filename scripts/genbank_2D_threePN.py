@@ -1,38 +1,31 @@
-import click
 import os
+from typing import Callable
+
+import click
 import jax
+from jax import random
 import jax.numpy as jnp
 import numpy as np
-
-from typing import Callable
 from scipy.optimize import minimize_scalar
-from jax import random
+
 from diffbank.bank import Bank
 from diffbank.utils import get_m1_m2_sampler
 from diffbank.waveforms.threePN_simple import Psi, amp
 
-# jax.config.update("jax_platform_name", "cpu")
 
 """
-Generate a 3PN bank.
+Generates a 3.5PN-2D bank.
+
+To generate the bank for the paper, use
+
+    >>> python genbank_2D_threePN.py --seed 1 --kind random
 """
-# To generate results for paper use command
-# python3 genbank_2D_threePN.py --seed 1 --kind random
 
 ##### Frequency settings
 f_u = 512.0  # Hz
 f_l = 24.0  # Hz
 N_fbins = 4880
 #####
-
-
-def get_Sn_O3a() -> Callable[[jnp.ndarray], jnp.ndarray]:
-    """
-    Get interpolator for noise curve.
-    """
-    xp, yp = np.loadtxt("O3a_Livingston_ASD.txt", unpack=True)
-    PSD = yp ** 2
-    return lambda f: jnp.interp(f, xp, PSD, left=jnp.inf, right=jnp.inf)
 
 
 @click.command()
@@ -48,14 +41,25 @@ def get_Sn_O3a() -> Callable[[jnp.ndarray], jnp.ndarray]:
 @click.option("--eta-star", default=0.9, help="eta*")
 @click.option("--n-eff", default=1000)
 @click.option("--savedir", default="banks", help="directory in which to save the bank")
-def gen_2D_threePN(seed, kind, n_eta, mm, eta_star, n_eff, savedir):
+@click.option("--device", default="cpu", help="device to run on")
+@click.option(
+    "--noise", default="interpolated", help="noise curve: 'analytic' or 'interpolated'"
+)
+def gen_2D_threePN(seed, kind, n_eta, mm, eta_star, n_eff, savedir, device, noise):
+    jax.config.update("jax_platform_name", device)
+
     key = random.PRNGKey(seed)
     m_star = 1 - mm
 
     fs = jnp.linspace(f_l, f_u, N_fbins)
     m_range = (1.0, 3.0)
     sampler = get_m1_m2_sampler(m_range, m_range)
-    Sn = get_Sn_O3a()
+    if noise == "interpolated":
+        from diffbank.noise import Sn_O3a as Sn
+    elif noise == "analytic":
+        from diffbank.noise import Sn_LIGOI as Sn
+    else:
+        raise ValueError("invalid 'noise' argument")
 
     bank = Bank(
         amp,

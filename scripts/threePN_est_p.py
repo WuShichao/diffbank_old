@@ -7,12 +7,13 @@ import jax.numpy as jnp
 from scipy.optimize import minimize_scalar
 
 from diffbank.bank import Bank
-from diffbank.noise import Sn_aLIGO
+from diffbank.noise import Sn_LIGOI
 from diffbank.utils import gen_templates_rejection, get_m1_m2_sampler
 from diffbank.waveforms.threePN_simple import Psi, amp
 
 """
-Generate a 3PN bank.
+Computes an MC estimate (with error bars) for the covering probability `p` for
+the 3.5PN-2D bank.
 """
 
 
@@ -32,7 +33,7 @@ def run(seed, mm, n):
         amp,
         Psi,
         fs,
-        Sn_aLIGO,
+        Sn_LIGOI,
         m_star,
         0.9,
         sampler,

@@ -1,17 +1,11 @@
 #!/bin/bash
 #SBATCH --job-name=tf2rs
-#SBATCH --time=96:00:00
-#SBATCH -N 1
-#SBATCH -p normal
+#SBATCH --account=rrg-lplevass
+#SBATCH --time=03-00:00:00
+#SBATCH --gres=gpu:1
+#SBATCH --cpus-per-task=1
+#SBATCH --mem=47000M
 
-# NBANKS=`nproc --all`
-NBANKS=16
-echo $NBANKS
+source ~/.virtualenvs/diffbank-3.9.6/bin/activate
 
-for i in $(seq 1 $NBANKS); do
-	python3 taylorf2reducedspin.py --seed $i --kind random &
-done
-
-# python3 taylorf2reducedspin.py --seed $NBANKS --kind stochastic &
-
-wait
+python genbank_3D_taylorf2reducedspin.py --seed 1 --kind random --device gpu
