@@ -118,7 +118,7 @@ def run(n_m1s, n_m2s, fig_path):
         jnp.full_like(th0_grid, -1e3) / th3_scale,
         where=jnp.full_like(th0_grid, True),
         color="w",
-        zorder=100,
+        zorder=1.5,
     )
     plt.fill_between(
         th0_grid / th0_scale,
@@ -126,7 +126,7 @@ def run(n_m1s, n_m2s, fig_path):
         jnp.full_like(th0_grid, 1e3) / th3_scale,
         where=jnp.full_like(th0_grid, True),
         color="w",
-        zorder=100,
+        zorder=1.5,
     )
 
     plt.xlabel(r"$\theta_0 / 10^{%i}$" % log10(th0_scale))
