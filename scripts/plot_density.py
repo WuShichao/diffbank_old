@@ -67,14 +67,14 @@ def run(n_m1s, n_m2s, fig_path):
         m_min, m_max, f_l
     )
 
-    # thetas = phys_to_th(jnp.stack([M_chirps, etas]), f_l).T  # type: ignore
-    # densities = jax.lax.map(density_fun, thetas)
-    # densities_analytic = []
-    # for i in tqdm(range(thetas.shape[0])):
-    #     densities_analytic.append(
-    #         jnp.sqrt(jnp.linalg.det(analytic_metric(fs, thetas[i], Sn)))
-    #     )
-    # densities_analytic = jnp.array(densities_analytic)
+    thetas = phys_to_th(jnp.stack([M_chirps, etas]), f_l).T  # type: ignore
+    densities = jax.lax.map(density_fun, thetas)
+    densities_analytic = []
+    for i in tqdm(range(thetas.shape[0])):
+        densities_analytic.append(
+            jnp.sqrt(jnp.linalg.det(analytic_metric(fs, thetas[i], Sn)))
+        )
+    densities_analytic = jnp.array(densities_analytic)
 
     # # Save
     # jnp.savez(
@@ -83,10 +83,10 @@ def run(n_m1s, n_m2s, fig_path):
     #     densities_analytic=densities_analytic,
     #     densities=densities,
     # )
-    # Load
-    thetas, densities_analytic, densities = itemgetter(
-        "thetas", "densities_analytic", "densities"
-    )(jnp.load("density.npz", allow_pickle=True))
+    # # Load
+    # thetas, densities_analytic, densities = itemgetter(
+    #     "thetas", "densities_analytic", "densities"
+    # )(jnp.load("density.npz", allow_pickle=True))
 
     # Quantify difference in densities
     diffs = jnp.log10(jnp.abs((densities - densities_analytic) / densities_analytic))
