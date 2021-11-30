@@ -21,6 +21,16 @@ from diffbank.waveforms.twoPN_chirptimes import (
     phys_to_th,
 )
 
+"""
+Plots the scalar curvature (Ricci scalar) for the metric for the waveform in
+https://arxiv.org/abs/gr-qc/0604037.
+
+To reproduce:
+
+    >>> python plot_scalar_curvature.py
+
+"""
+
 ##### Frequency settings
 f_u = 512.0  # Hz
 f_l = 10.0  # Hz
