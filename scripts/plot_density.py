@@ -23,6 +23,18 @@ from diffbank.waveforms.twoPN_chirptimes import (
     phys_to_th,
 )
 
+plt.style.use("../plot_style.mplstyle")
+
+"""
+Compares the analytic metric from arXiv:gr-qc/0604037 with the one computed
+with automatic differentiation.
+
+To reproduce the plot:
+
+    >>> python plot_density.py
+
+"""
+
 ##### Frequency settings
 f_u = 512.0  # Hz
 f_l = 10.0  # Hz
@@ -55,14 +67,14 @@ def run(n_m1s, n_m2s, fig_path):
         m_min, m_max, f_l
     )
 
-    thetas = phys_to_th(jnp.stack([M_chirps, etas]), f_l).T  # type: ignore
-    densities = jax.lax.map(density_fun, thetas)
-    densities_analytic = []
-    for i in tqdm(range(thetas.shape[0])):
-        densities_analytic.append(
-            jnp.sqrt(jnp.linalg.det(analytic_metric(fs, thetas[i], Sn)))
-        )
-    densities_analytic = jnp.array(densities_analytic)
+    # thetas = phys_to_th(jnp.stack([M_chirps, etas]), f_l).T  # type: ignore
+    # densities = jax.lax.map(density_fun, thetas)
+    # densities_analytic = []
+    # for i in tqdm(range(thetas.shape[0])):
+    #     densities_analytic.append(
+    #         jnp.sqrt(jnp.linalg.det(analytic_metric(fs, thetas[i], Sn)))
+    #     )
+    # densities_analytic = jnp.array(densities_analytic)
 
     # # Save
     # jnp.savez(
@@ -71,10 +83,10 @@ def run(n_m1s, n_m2s, fig_path):
     #     densities_analytic=densities_analytic,
     #     densities=densities,
     # )
-    # # Load
-    # thetas, densities_analytic, densities = itemgetter(
-    #     "thetas", "densities_analytic", "densities"
-    # )(jnp.load("density.npz", allow_pickle=True))
+    # Load
+    thetas, densities_analytic, densities = itemgetter(
+        "thetas", "densities_analytic", "densities"
+    )(jnp.load("density.npz", allow_pickle=True))
 
     # Quantify difference in densities
     diffs = jnp.log10(jnp.abs((densities - densities_analytic) / densities_analytic))

@@ -21,6 +21,8 @@ from diffbank.waveforms.twoPN_chirptimes import (
     phys_to_th,
 )
 
+plt.style.use("../plot_style.mplstyle")
+
 """
 Plots the scalar curvature (Ricci scalar) for the metric for the waveform in
 https://arxiv.org/abs/gr-qc/0604037.

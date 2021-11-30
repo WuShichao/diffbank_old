@@ -3,13 +3,14 @@ import os
 import re
 from typing import Dict, Tuple
 
+from jax import random
+import jax.numpy as jnp
+import matplotlib.pyplot as plt
+
 from diffbank.bank import Bank
 from diffbank.noise import Sn_LIGOI
 from diffbank.utils import get_m1_m2_sampler
 from diffbank.waveforms.threePN_simple import Psi, amp
-from jax import random
-import jax.numpy as jnp
-import matplotlib.pyplot as plt
 
 plt.style.use("../plot_style.mplstyle")
 
@@ -26,6 +27,11 @@ scripts:
 Generates the following plots:
     - figures/threePN-n_templates-scaling.pdf
     - figures/threePN-time-scaling.pdf
+
+To reproduce the plots:
+
+    >>> python plot_scaling.py
+
 """
 
 
