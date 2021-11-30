@@ -63,11 +63,21 @@ mm_ref = 0.9
 
 
 def cs_cr_pred(p, eta, n_eff=1000):
-    return 1 / (n_eff * p) * (1 + jnp.log(1 - eta)) / (eta - 1)
+    return (
+        -2 + eta + 1 / p + ((-1 + p) * jnp.log(1 - eta)) / (eta * jnp.log(1 - p))
+    ) / ((-1 + eta) * n_eff)
 
 
 def cs_cr_pred_err(p_err, p, eta, n_eff=1000):
-    return cs_cr_pred(p, eta, n_eff) / p * p_err
+    return (
+        (
+            -(p ** (-2))
+            + ((-1 + p) * jnp.log(1 - eta)) / (eta * (1 - p) * jnp.log(1 - p) ** 2)
+            + jnp.log(1 - eta) / (eta * jnp.log(1 - p))
+        )
+        / ((-1 + eta) * n_eff)
+        * p_err
+    )
 
 
 def plot_n_templates_scaling(axs):
@@ -163,7 +173,7 @@ def plot_n_templates_scaling(axs):
         s=10,
         label="Stochastic",
     )
-    ax.set_ylim(0, None)
+    ax.set_ylim(0, 2100)
 
 
 def plot_time_scaling(axs):
@@ -219,6 +229,7 @@ def plot_time_scaling(axs):
     ax = axs[1]
     c_ss = jnp.array([runtimes[("stochastic", mm_ref, eta)] for eta in etas])
     c_rs = jnp.array([runtimes[("random", mm_ref, eta)] for eta in etas])
+    print(cs_cr_pred(p_est_ref, etas))
     ax.scatter(etas, c_ss / c_rs, c="C4", s=10, label="Measured")
     ax.errorbar(
         etas,
@@ -228,7 +239,7 @@ def plot_time_scaling(axs):
         c="C1",
         label=r"Estimated ($\pm 2\sigma$)",
     )
-    ax.set_ylim(0, None)
+    ax.set_ylim(0, 30)
 
 
 def run():
