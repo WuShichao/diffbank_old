@@ -127,8 +127,8 @@ def run(n_m1s, n_m2s, n_th0s, n_th3s, fig_path):
     plt.ylabel(r"$\theta_3$")
     plt.xlim(0.0 * 1e4, 10.0 * 1e4)
     plt.ylim(0.8 * 1e2, 8 * 1e2)
-    plt.tight_layout()
-    plt.savefig(fig_path)
+    # plt.tight_layout()
+    plt.savefig(fig_path, bbox_inches="tight")
 
 
 if __name__ == "__main__":

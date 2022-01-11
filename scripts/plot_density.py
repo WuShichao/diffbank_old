@@ -134,8 +134,8 @@ def run(n_m1s, n_m2s, fig_path):
     plt.xlim(0.1, 10)
     plt.ylim(1, 8)
 
-    plt.tight_layout()
-    plt.savefig(fig_path)
+    # plt.tight_layout()
+    plt.savefig(fig_path, bbox_inches="tight")
 
 
 if __name__ == "__main__":

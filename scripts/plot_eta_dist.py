@@ -82,8 +82,8 @@ def plot_eta_dist():
     plt.xlabel(r"$N$")
     plt.ylabel(r"$\eta$")
     plt.legend(loc="upper left", frameon=False)
-    plt.tight_layout()
-    plt.savefig("figures/eta-dist.pdf")
+    # plt.tight_layout()
+    plt.savefig("figures/eta-dist.pdf", bbox_inches="tight")
 
 
 if __name__ == "__main__":

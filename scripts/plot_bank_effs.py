@@ -48,8 +48,8 @@ def run():
     plt.xlabel("Effectualness")
     plt.ylabel("CDF")
 
-    plt.tight_layout()
-    plt.savefig("figures/bank-effs.pdf")
+    # plt.tight_layout()
+    plt.savefig("figures/bank-effs.pdf", bbox_inches="tight")
 
 
 if __name__ == "__main__":
