@@ -79,7 +79,7 @@ def plot_eta_dist():
     # Target eta
     plt.axhline(0.9, color="k", linestyle="--", linewidth=1)
 
-    plt.xlabel(r"$N$")
+    plt.xlabel(r"$N_T$")
     plt.ylabel(r"$\eta$")
     plt.legend(loc="upper left", frameon=False)
     # plt.tight_layout()
